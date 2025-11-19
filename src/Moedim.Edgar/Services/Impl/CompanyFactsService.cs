@@ -1,7 +1,9 @@
-using Moedim.Edgar.Services;
+using Moedim.Edgar.Client;
+using Moedim.Edgar.Models;
+using Moedim.Edgar.Options;
 using Newtonsoft.Json.Linq;
 
-namespace Moedim.Edgar.Models;
+namespace Moedim.Edgar.Services.Impl;
 
 /// <summary>
 /// Service for querying all facts for a company from SEC EDGAR
@@ -10,9 +12,11 @@ namespace Moedim.Edgar.Models;
 /// Initializes a new instance of the CompanyFactsService class
 /// </remarks>
 /// <param name="client">The SEC EDGAR client</param>
-public class CompanyFactsService(ISecEdgarClient client) : ICompanyFactsService
+/// <param name="options">The SEC EDGAR options</param>
+public class CompanyFactsService(ISecEdgarClient client, SecEdgarOptions options) : ICompanyFactsService
 {
     private readonly ISecEdgarClient _client = client ?? throw new ArgumentNullException(nameof(client));
+    private readonly SecEdgarOptions _options = options ?? throw new ArgumentNullException(nameof(options));
 
     /// <summary>
     /// Queries all facts for a company
@@ -22,10 +26,13 @@ public class CompanyFactsService(ISecEdgarClient client) : ICompanyFactsService
     /// <returns>A CompanyFactsQuery containing all facts</returns>
     public async Task<CompanyFactsQuery> QueryAsync(int cik, CancellationToken cancellationToken = default)
     {
-        string cikPortion = cik.ToString("0000000000");
-        string url = $"https://data.sec.gov/api/xbrl/companyfacts/CIK{cikPortion}.json";
+        if (cik <= 0)
+            throw new ArgumentOutOfRangeException(nameof(cik), "CIK must be positive");
 
-        string content = await _client.GetAsync(url, cancellationToken);
+        string cikPortion = cik.ToString("0000000000");
+        string url = $"{_options.BaseApiUrl}/companyfacts/CIK{cikPortion}.json";
+
+        string content = await _client.GetAsync(url, cancellationToken).ConfigureAwait(false);
 
         JObject jo = JObject.Parse(content);
         return CompanyFactsQuery.Parse(jo);

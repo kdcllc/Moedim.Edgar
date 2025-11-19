@@ -1,7 +1,9 @@
-using Moedim.Edgar.Services;
+using Moedim.Edgar.Client;
+using Moedim.Edgar.Models;
+using Moedim.Edgar.Options;
 using Newtonsoft.Json.Linq;
 
-namespace Moedim.Edgar.Models;
+namespace Moedim.Edgar.Services.Impl;
 
 /// <summary>
 /// Service for querying specific company concepts from SEC EDGAR
@@ -10,9 +12,11 @@ namespace Moedim.Edgar.Models;
 /// Initializes a new instance of the CompanyConceptService class
 /// </remarks>
 /// <param name="client">The SEC EDGAR client</param>
-public class CompanyConceptService(ISecEdgarClient client) : ICompanyConceptService
+/// <param name="options">The SEC EDGAR options</param>
+public class CompanyConceptService(ISecEdgarClient client, SecEdgarOptions options) : ICompanyConceptService
 {
     private readonly ISecEdgarClient _client = client ?? throw new ArgumentNullException(nameof(client));
+    private readonly SecEdgarOptions _options = options ?? throw new ArgumentNullException(nameof(options));
 
     /// <summary>
     /// Queries a specific concept for a company
@@ -23,10 +27,16 @@ public class CompanyConceptService(ISecEdgarClient client) : ICompanyConceptServ
     /// <returns>A CompanyConceptQuery containing the results</returns>
     public async Task<CompanyConceptQuery> QueryAsync(int cik, string tag, CancellationToken cancellationToken = default)
     {
-        string cikPortion = cik.ToString("0000000000");
-        string url = $"https://data.sec.gov/api/xbrl/companyconcept/CIK{cikPortion}/us-gaap/{tag}.json";
+        ArgumentNullException.ThrowIfNull(tag);
+        if (string.IsNullOrWhiteSpace(tag))
+            throw new ArgumentException("Tag cannot be empty", nameof(tag));
+        if (cik <= 0)
+            throw new ArgumentOutOfRangeException(nameof(cik), "CIK must be positive");
 
-        string content = await _client.GetAsync(url, cancellationToken);
+        string cikPortion = cik.ToString("0000000000");
+        string url = $"{_options.BaseApiUrl}/companyconcept/CIK{cikPortion}/us-gaap/{tag}.json";
+
+        string content = await _client.GetAsync(url, cancellationToken).ConfigureAwait(false);
 
         JObject jo = JObject.Parse(content);
         return CompanyConceptQuery.Parse(jo);

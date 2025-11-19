@@ -20,7 +20,7 @@ public class FactDataPoint
     /// <summary>
     /// Gets or sets the numerical value of this data point
     /// </summary>
-    public float Value { get; set; }
+    public decimal Value { get; set; }
 
     /// <summary>
     /// Gets or sets the fiscal year
@@ -47,75 +47,66 @@ public class FactDataPoint
     /// </summary>
     /// <param name="jo">The JSON object to parse</param>
     /// <returns>A new FactDataPoint instance</returns>
+    /// <exception cref="ArgumentNullException">Thrown when jo is null</exception>
+    /// <exception cref="InvalidOperationException">Thrown when parsing fails</exception>
     public static FactDataPoint Parse(JObject jo)
     {
-        FactDataPoint ToReturn = new();
+        ArgumentNullException.ThrowIfNull(jo);
 
-        JProperty? prop_start = jo.Property("start");
-        if (prop_start != null)
+        try
         {
-            if (prop_start.Value.Type != JTokenType.Null)
+            var dataPoint = new FactDataPoint();
+
+            JProperty? prop_start = jo.Property("start");
+            if (prop_start != null && prop_start.Value.Type != JTokenType.Null)
             {
-                ToReturn.Start = DateTime.Parse(prop_start.Value.ToString()!);
+                dataPoint.Start = DateTime.Parse(prop_start.Value.ToString()!, System.Globalization.CultureInfo.InvariantCulture);
             }
-        }
 
-        JProperty? prop_end = jo.Property("end");
-        if (prop_end != null)
-        {
-            ToReturn.End = DateTime.Parse(prop_end.Value.ToString()!);
-        }
-
-        JProperty? prop_val = jo.Property("val");
-        if (prop_val != null)
-        {
-            if (prop_val.Value.Type != JTokenType.Null)
+            JProperty? prop_end = jo.Property("end");
+            if (prop_end != null)
             {
-                ToReturn.Value = Convert.ToSingle(prop_val.Value.ToString()!);
+                dataPoint.End = DateTime.Parse(prop_end.Value.ToString()!, System.Globalization.CultureInfo.InvariantCulture);
             }
-        }
 
-        JProperty? prop_fy = jo.Property("fy");
-        if (prop_fy != null)
-        {
-            if (prop_fy.Value.Type != JTokenType.Null)
+            JProperty? prop_val = jo.Property("val");
+            if (prop_val != null && prop_val.Value.Type != JTokenType.Null)
             {
-                ToReturn.FiscalYear = Convert.ToInt32(prop_fy.Value.ToString()!);
+                dataPoint.Value = Convert.ToDecimal(prop_val.Value.ToString()!);
             }
-        }
 
-        JProperty? prop_fp = jo.Property("fp");
-        if (prop_fp != null)
-        {
-            if (prop_fp.Value.Type != JTokenType.Null)
+            JProperty? prop_fy = jo.Property("fy");
+            if (prop_fy != null && prop_fy.Value.Type != JTokenType.Null)
+            {
+                dataPoint.FiscalYear = Convert.ToInt32(prop_fy.Value.ToString()!);
+            }
+
+            JProperty? prop_fp = jo.Property("fp");
+            if (prop_fp != null && prop_fp.Value.Type != JTokenType.Null)
             {
                 string fp = prop_fp.Value.ToString()!;
-                if (fp.ToLower() == "fy")
+                dataPoint.Period = fp switch
                 {
-                    ToReturn.Period = FiscalPeriod.FiscalYear;
-                }
-                else if (fp.ToLower() == "q1")
-                {
-                    ToReturn.Period = FiscalPeriod.Q1;
-                }
-                else if (fp.ToLower() == "q2")
-                {
-                    ToReturn.Period = FiscalPeriod.Q2;
-                }
-                else if (fp.ToLower() == "q3")
-                {
-                    ToReturn.Period = FiscalPeriod.Q3;
-                }
-                else if (fp.ToLower() == "q4")
-                {
-                    ToReturn.Period = FiscalPeriod.Q4;
-                }
+                    var p when p.Equals("fy", StringComparison.OrdinalIgnoreCase) => FiscalPeriod.FiscalYear,
+                    var p when p.Equals("q1", StringComparison.OrdinalIgnoreCase) => FiscalPeriod.Q1,
+                    var p when p.Equals("q2", StringComparison.OrdinalIgnoreCase) => FiscalPeriod.Q2,
+                    var p when p.Equals("q3", StringComparison.OrdinalIgnoreCase) => FiscalPeriod.Q3,
+                    var p when p.Equals("q4", StringComparison.OrdinalIgnoreCase) => FiscalPeriod.Q4,
+                    _ => FiscalPeriod.FiscalYear
+                };
             }
+
+            if (jo.TryGetValue("form", out var val_form)) { dataPoint.FromForm = val_form.ToString(); }
+            if (jo.TryGetValue("filed", out var val_filed))
+            {
+                dataPoint.Filed = DateTime.Parse(val_filed.ToString(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            return dataPoint;
         }
-
-        if (jo.TryGetValue("form", out var val_form)) { ToReturn.FromForm = val_form.ToString(); }
-        if (jo.TryGetValue("filed", out var val_filed)) { ToReturn.Filed = DateTime.Parse(val_filed.ToString()); }
-
-        return ToReturn;
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to parse fact data point", ex);
+        }
     }
 }

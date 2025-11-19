@@ -1,6 +1,7 @@
+using Moedim.Edgar.Client;
+using Moedim.Edgar.Client.Impl;
 using Moedim.Edgar.Models;
 using Moedim.Edgar.Options;
-using Moedim.Edgar.Services;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -12,6 +13,9 @@ public static class EdgarServiceCollectionExtensions
     /// <summary>
     /// Adds SEC EDGAR client services to the service collection
     /// </summary>
+    /// <param name="services">The service collection to add services to</param>
+    /// <param name="configureOptions">Action to configure SEC EDGAR options</param>
+    /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddSecEdgar(
         this IServiceCollection services,
         Action<SecEdgarOptions> configureOptions)
@@ -26,8 +30,10 @@ public static class EdgarServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.AddSingleton<ISecEdgarClient, SecEdgarClient>();
-        services.AddSingleton<ICompanyFactsService, CompanyFactsService>();
-        services.AddSingleton<ICompanyConceptService, CompanyConceptService>();
+        services.AddSingleton<ICompanyFactsService>(sp =>
+            new CompanyFactsService(sp.GetRequiredService<ISecEdgarClient>(), options));
+        services.AddSingleton<ICompanyConceptService>(sp =>
+            new CompanyConceptService(sp.GetRequiredService<ISecEdgarClient>(), options));
 
         // Configure named HttpClient for SEC Edgar
         services.AddHttpClient("SecEdgar", client =>

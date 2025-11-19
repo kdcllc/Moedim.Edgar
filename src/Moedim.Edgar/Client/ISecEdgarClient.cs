@@ -18,6 +18,7 @@ public interface ISecEdgarClient
     /// </summary>
     /// <param name="url">The URL to fetch</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>The response content as a stream</returns>
+    /// <returns>The response content as a stream. Caller is responsible for disposing the stream.</returns>
+    /// <remarks>The returned stream must be disposed by the caller.</remarks>
     Task<Stream> GetStreamAsync(string url, CancellationToken cancellationToken = default);
 }

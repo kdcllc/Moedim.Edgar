@@ -32,30 +32,41 @@ public class Fact
     /// </summary>
     /// <param name="jo">The JSON object to parse</param>
     /// <returns>A new Fact instance</returns>
+    /// <exception cref="ArgumentNullException">Thrown when jo is null</exception>
+    /// <exception cref="InvalidOperationException">Thrown when parsing fails</exception>
     public static Fact Parse(JObject jo)
     {
-        Fact ToReturn = new();
+        ArgumentNullException.ThrowIfNull(jo);
 
-        if (jo.TryGetValue("tag", out JToken? val_tag)){ ToReturn.Tag = val_tag?.ToString(); }
-        if (jo.TryGetValue("label", out JToken? val_label)) { ToReturn.Label = val_label?.ToString(); }
-        if (jo.TryGetValue("description", out JToken? val_description)){ ToReturn.Description = val_description?.ToString(); }
-
-        List<FactDataPoint> DataPoints = new();
-        JProperty? prop_units = jo.Property("units");
-        if (prop_units != null)
+        try
         {
-            JObject units = (JObject)prop_units.Value;
-            foreach (JProperty prop_unittypes in units.Properties())
+            var fact = new Fact();
+
+            if (jo.TryGetValue("tag", out JToken? val_tag)) { fact.Tag = val_tag?.ToString(); }
+            if (jo.TryGetValue("label", out JToken? val_label)) { fact.Label = val_label?.ToString(); }
+            if (jo.TryGetValue("description", out JToken? val_description)) { fact.Description = val_description?.ToString(); }
+
+            var dataPoints = new List<FactDataPoint>();
+            JProperty? prop_units = jo.Property("units");
+            if (prop_units != null)
             {
-                JArray unittype = (JArray)prop_unittypes.Value;
-                foreach (JObject factdata in unittype)
+                JObject units = (JObject)prop_units.Value;
+                foreach (JProperty prop_unittypes in units.Properties())
                 {
-                    DataPoints.Add(FactDataPoint.Parse(factdata));
+                    JArray unittype = (JArray)prop_unittypes.Value;
+                    foreach (JObject factdata in unittype)
+                    {
+                        dataPoints.Add(FactDataPoint.Parse(factdata));
+                    }
                 }
             }
-        }
-        ToReturn.DataPoints = DataPoints.ToArray();
+            fact.DataPoints = dataPoints.ToArray();
 
-        return ToReturn;
+            return fact;
+        }
+        catch (Exception ex) when (ex is not ArgumentNullException)
+        {
+            throw new InvalidOperationException("Failed to parse fact data", ex);
+        }
     }
 }

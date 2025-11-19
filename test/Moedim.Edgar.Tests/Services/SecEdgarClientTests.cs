@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
-using Moedim.Edgar.Services;
+using Moedim.Edgar.Client.Impl;
+using Moedim.Edgar.Options;
 
 namespace Moedim.Edgar.Tests.Services;
 

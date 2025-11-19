@@ -11,6 +11,11 @@ public class SecEdgarOptions
     public string? UserAgent { get; set; }
 
     /// <summary>
+    /// Base URL for SEC EDGAR API (default: https://data.sec.gov/api/xbrl)
+    /// </summary>
+    public string BaseApiUrl { get; set; } = "https://data.sec.gov/api/xbrl";
+
+    /// <summary>
     /// Delay between requests (default: 250ms as per SEC guidelines)
     /// </summary>
     public TimeSpan RequestDelay { get; set; } = TimeSpan.FromMilliseconds(250);

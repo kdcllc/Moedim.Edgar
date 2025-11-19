@@ -27,32 +27,43 @@ public class CompanyFactsQuery
     /// </summary>
     /// <param name="jo">The JSON object to parse</param>
     /// <returns>A new CompanyFactsQuery instance</returns>
+    /// <exception cref="ArgumentNullException">Thrown when jo is null</exception>
+    /// <exception cref="InvalidOperationException">Thrown when parsing fails</exception>
     public static CompanyFactsQuery Parse(JObject jo)
     {
-        CompanyFactsQuery ToReturn = new();
+        ArgumentNullException.ThrowIfNull(jo);
 
-        if (jo.TryGetValue("cik", out JToken? val_cik)) { ToReturn.CIK = Convert.ToInt32(val_cik?.ToString() ?? "0"); }
-        if (jo.TryGetValue("entityName", out JToken? val_entityName)) { ToReturn.EntityName = val_entityName?.ToString(); }
-
-        List<Fact> Facts = new();
-        JProperty? prop_facts = jo.Property("facts");
-        if (prop_facts != null)
+        try
         {
-            JObject facts = (JObject)prop_facts.Value;
-            foreach (JProperty prop_facttype in facts.Properties())
+            var query = new CompanyFactsQuery();
+
+            if (jo.TryGetValue("cik", out JToken? val_cik)) { query.CIK = Convert.ToInt32(val_cik?.ToString() ?? "0"); }
+            if (jo.TryGetValue("entityName", out JToken? val_entityName)) { query.EntityName = val_entityName?.ToString(); }
+
+            var facts = new List<Fact>();
+            JProperty? prop_facts = jo.Property("facts");
+            if (prop_facts != null)
             {
-                JObject facttype = (JObject)prop_facttype.Value;
-                foreach (JProperty prop_fact in facttype.Properties())
+                JObject factsObject = (JObject)prop_facts.Value;
+                foreach (JProperty prop_facttype in factsObject.Properties())
                 {
-                    JObject fact = (JObject)prop_fact.Value;
-                    Fact ThisFact = Fact.Parse(fact);
-                    ThisFact.Tag = prop_fact.Name;
-                    Facts.Add(ThisFact);
+                    JObject facttype = (JObject)prop_facttype.Value;
+                    foreach (JProperty prop_fact in facttype.Properties())
+                    {
+                        JObject fact = (JObject)prop_fact.Value;
+                        Fact thisFact = Fact.Parse(fact);
+                        thisFact.Tag = prop_fact.Name;
+                        facts.Add(thisFact);
+                    }
                 }
             }
-        }
-        ToReturn.Facts = Facts.ToArray();
+            query.Facts = facts.ToArray();
 
-        return ToReturn;
+            return query;
+        }
+        catch (Exception ex) when (ex is not ArgumentNullException)
+        {
+            throw new InvalidOperationException("Failed to parse company facts data", ex);
+        }
     }
 }

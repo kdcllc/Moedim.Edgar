@@ -8,19 +8,13 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
 
-    <!-- Package Information -->
+    <!-- Common Package Information -->
     <Authors>kdcllc</Authors>
     <Company>King David Consulting LLC</Company>
-    <Product>Moedim.Mapper</Product>
-    <Copyright>Copyright © King David Consulting LLC 2025</Copyright>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/kdcllc/Moedim.Mapper</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/kdcllc/Moedim.Mapper</RepositoryUrl>
+    <Copyright>Copyright (c) 2025 kdcllc</Copyright>
+    <RepositoryUrl>https://github.com/kdcllc/Moedim.Edgar</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>mapper;source-generator;object-mapping;performance;compile-time</PackageTags>
-    <Description>High-performance C# object mapper using source generators with convention-based and attribute-based mapping support</Description>
-    <PackageIcon>icon.png</PackageIcon>
 
     <!-- Version Information -->
     <VersionPrefix>1.0.0</VersionPrefix>
@@ -31,14 +25,29 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- Documentation -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- Moedim.Edgar Library Package Information -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Moedim.Edgar'">
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>Moedim.Edgar</PackageId>
+    <Version>1.0.0</Version>
+    <Description>A modern .NET library for accessing SEC EDGAR filings and data using IHttpClientFactory and dependency injection. Provides strongly-typed models, async/await patterns, and comprehensive retry logic for reliable access to Securities and Exchange Commission data.</Description>
+    <PackageTags>SEC;EDGAR;Finance;Securities;HttpClientFactory;DependencyInjection;Async;Financial-Data;US-GAAP</PackageTags>
+    <PackageProjectUrl>https://github.com/kdcllc/Moedim.Edgar</PackageProjectUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
-    <None Include="$(MSBuildThisFileDirectory)img/icon.png" Pack="true" PackagePath="\" />
+  <!-- Package Files for Moedim.Edgar Library -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Moedim.Edgar'">
+    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>

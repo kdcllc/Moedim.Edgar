@@ -1,4 +1,6 @@
-namespace Moedim.Edgar.Models;
+using Moedim.Edgar.Models;
+
+namespace Moedim.Edgar.Services;
 
 /// <summary>
 /// Interface for querying all facts for a company from SEC EDGAR
