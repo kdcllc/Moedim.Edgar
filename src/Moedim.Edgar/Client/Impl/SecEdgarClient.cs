@@ -1,26 +1,27 @@
 using System.Net;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moedim.Edgar.Options;
 
 namespace Moedim.Edgar.Client.Impl;
 
 /// <summary>
-/// SEC EDGAR API client implementation using IHttpClientFactory
+/// SEC EDGAR API client implementation using HttpClient
 /// </summary>
 /// <remarks>
 /// Initializes a new instance of the SecEdgarClient class
 /// </remarks>
-/// <param name="httpClientFactory">The HTTP client factory</param>
+/// <param name="httpClient">The HTTP client</param>
 /// <param name="options">The SEC EDGAR options</param>
 /// <param name="logger">Optional logger</param>
 public class SecEdgarClient(
-    IHttpClientFactory httpClientFactory,
-    SecEdgarOptions options,
+    HttpClient httpClient,
+    IOptions<SecEdgarOptions> options,
     ILogger<SecEdgarClient> logger) : ISecEdgarClient
 {
-    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+    private readonly HttpClient _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     private readonly ILogger<SecEdgarClient> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    private readonly SecEdgarOptions _options = options ?? throw new ArgumentNullException(nameof(options));
+    private readonly SecEdgarOptions _options = options.Value ?? throw new ArgumentNullException(nameof(options));
 
     /// <inheritdoc />
     public async Task<string> GetAsync(string url, CancellationToken cancellationToken = default)
@@ -38,7 +39,6 @@ public class SecEdgarClient(
 
     private async Task<HttpResponseMessage> ExecuteRequestAsync(string url, CancellationToken cancellationToken)
     {
-        var httpClient = _httpClientFactory.CreateClient("SecEdgar");
         HttpResponseMessage? response = null;
         int attemptCount = 0;
 
@@ -56,7 +56,7 @@ public class SecEdgarClient(
 
             try
             {
-                var httpResponse = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                var httpResponse = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
                 _logger.LogDebug("Received response with status code: {StatusCode}", httpResponse.StatusCode);
 

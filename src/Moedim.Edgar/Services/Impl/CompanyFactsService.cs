@@ -1,9 +1,11 @@
+using Microsoft.Extensions.Options;
 using Moedim.Edgar.Client;
-using Moedim.Edgar.Models;
+using Moedim.Edgar.Models.Data;
 using Moedim.Edgar.Options;
+using Moedim.Edgar.Services.Data;
 using Newtonsoft.Json.Linq;
 
-namespace Moedim.Edgar.Services.Impl;
+namespace Moedim.Edgar.Services.Impl.Data;
 
 /// <summary>
 /// Service for querying all facts for a company from SEC EDGAR
@@ -13,10 +15,12 @@ namespace Moedim.Edgar.Services.Impl;
 /// </remarks>
 /// <param name="client">The SEC EDGAR client</param>
 /// <param name="options">The SEC EDGAR options</param>
-public class CompanyFactsService(ISecEdgarClient client, SecEdgarOptions options) : ICompanyFactsService
+public class CompanyFactsService(
+    ISecEdgarClient client,
+    IOptions<SecEdgarOptions> options) : ICompanyFactsService
 {
     private readonly ISecEdgarClient _client = client ?? throw new ArgumentNullException(nameof(client));
-    private readonly SecEdgarOptions _options = options ?? throw new ArgumentNullException(nameof(options));
+    private readonly SecEdgarOptions _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
 
     /// <summary>
     /// Queries all facts for a company

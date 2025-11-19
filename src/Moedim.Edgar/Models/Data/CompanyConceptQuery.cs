@@ -1,6 +1,6 @@
 using Newtonsoft.Json.Linq;
 
-namespace Moedim.Edgar.Models;
+namespace Moedim.Edgar.Models.Data;
 
 /// <summary>
 /// Represents a query result for a specific company concept

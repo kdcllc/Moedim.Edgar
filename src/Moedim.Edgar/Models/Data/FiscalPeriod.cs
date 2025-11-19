@@ -1,4 +1,4 @@
-namespace Moedim.Edgar.Models;
+namespace Moedim.Edgar.Models.Data;
 
 /// <summary>
 /// Represents fiscal reporting periods

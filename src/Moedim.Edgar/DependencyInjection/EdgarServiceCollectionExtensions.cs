@@ -1,7 +1,11 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Moedim.Edgar.Client;
 using Moedim.Edgar.Client.Impl;
-using Moedim.Edgar.Models;
 using Moedim.Edgar.Options;
+using Moedim.Edgar.Services.Data;
+using Moedim.Edgar.Services.Impl.Data;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -21,23 +25,24 @@ public static class EdgarServiceCollectionExtensions
         Action<SecEdgarOptions> configureOptions)
     {
         ArgumentNullException.ThrowIfNull(services);
-
         ArgumentNullException.ThrowIfNull(configureOptions);
 
-        var options = new SecEdgarOptions();
-        configureOptions(options);
-        options.Validate();
+        services.AddOptions<SecEdgarOptions>()
+                .Configure<IConfiguration>((options, configuration) =>
+                {
+                    configuration.GetSection("SecEdgar").Bind(options);
+                    configureOptions(options);
+                    options.Validate();
+                });
 
-        services.AddSingleton(options);
-        services.AddSingleton<ISecEdgarClient, SecEdgarClient>();
-        services.AddSingleton<ICompanyFactsService>(sp =>
-            new CompanyFactsService(sp.GetRequiredService<ISecEdgarClient>(), options));
-        services.AddSingleton<ICompanyConceptService>(sp =>
-            new CompanyConceptService(sp.GetRequiredService<ISecEdgarClient>(), options));
+
+        services.TryAddTransient<ICompanyFactsService, CompanyFactsService>();
+        services.TryAddTransient<ICompanyConceptService, CompanyConceptService>();
 
         // Configure named HttpClient for SEC Edgar
-        services.AddHttpClient("SecEdgar", client =>
+        services.AddHttpClient<ISecEdgarClient,SecEdgarClient>((sp, client) =>
         {
+            var options = sp.GetRequiredService<IOptions<SecEdgarOptions>>().Value;
             client.DefaultRequestHeaders.Add("User-Agent", options.UserAgent);
             client.DefaultRequestHeaders.Add("Accept", "*/*");
             client.Timeout = TimeSpan.FromSeconds(30);
