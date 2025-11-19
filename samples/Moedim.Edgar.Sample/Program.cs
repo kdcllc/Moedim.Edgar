@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Moedim.Edgar.Services.Data;
 
 namespace Moedim.Edgar.Sample;
@@ -9,10 +10,12 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        Console.WriteLine("=== Moedim.Edgar Sample Application ===\n");
 
         // Setup dependency injection
         var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddEnvironmentVariables()
+            .Build();
 
         // Add logging
         services.AddLogging(builder =>
@@ -31,86 +34,89 @@ class Program
             options.MaxRetryCount = 3;
         });
 
-        var serviceProvider = services.BuildServiceProvider();
+        services.AddSingleton<IConfiguration>(configuration);
+
+        var sp = services.BuildServiceProvider();
+        var logger = sp.GetRequiredService<ILogger<Program>>();
+
+        logger.LogInformation("=== Moedim.Edgar Sample Application ===");
 
         // Run examples
-        await RunCompanyFactsExample(serviceProvider);
-        await RunCompanyConceptExample(serviceProvider);
+        await RunCompanyFactsExample(sp);
+        await RunCompanyConceptExample(sp);
 
-        Console.WriteLine("\n=== Sample Complete ===");
+        logger.LogInformation("=== Sample Complete ===");
     }
 
     static async Task RunCompanyFactsExample(ServiceProvider serviceProvider)
     {
-        Console.WriteLine("--- Company Facts Example ---");
+        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("--- Company Facts Example ---");
 
         var companyFactsService = serviceProvider.GetRequiredService<ICompanyFactsService>();
 
         // Apple Inc. CIK: 320193
-        Console.WriteLine("Fetching company facts for Apple Inc. (CIK: 320193)...\n");
+        logger.LogInformation("Fetching company facts for Apple Inc. (CIK: 320193)...");
 
         try
         {
             var facts = await companyFactsService.QueryAsync(320193);
 
-            Console.WriteLine($"Entity Name: {facts.EntityName}");
-            Console.WriteLine($"CIK: {facts.CIK}");
-            Console.WriteLine($"Total Facts: {facts.Facts?.Length ?? 0}");
+            logger.LogInformation("Entity Name: {EntityName}", facts.EntityName);
+            logger.LogInformation("CIK: {CIK}", facts.CIK);
+            logger.LogInformation("Total Facts: {TotalFacts}", facts.Facts?.Length ?? 0);
 
             if (facts.Facts?.Length > 0)
             {
-                Console.WriteLine("\nSample Facts:");
+                logger.LogInformation("Sample Facts:");
                 foreach (var fact in facts.Facts.Take(5))
                 {
-                    Console.WriteLine($"  - {fact.Label ?? fact.Tag}: (has {fact.DataPoints?.Length ?? 0} data points)");
+                    logger.LogInformation("  - {Label}: (has {DataPoints} data points)", fact.Label ?? fact.Tag, fact.DataPoints?.Length ?? 0);
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: {ex.Message}");
+            logger.LogError(ex, "Error fetching company facts");
         }
-
-        Console.WriteLine();
     }
 
     static async Task RunCompanyConceptExample(ServiceProvider serviceProvider)
     {
-        Console.WriteLine("--- Company Concept Example ---");
+        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("--- Company Concept Example ---");
 
         var companyConceptService = serviceProvider.GetRequiredService<ICompanyConceptService>();
 
         // Microsoft CIK: 789019, Concept: Revenues
-        Console.WriteLine("Fetching Revenue data for Microsoft (CIK: 789019)...\n");
+        logger.LogInformation("Fetching Revenue data for Microsoft (CIK: 789019)...");
 
         try
         {
             var concept = await companyConceptService.QueryAsync(789019, "Revenues");
 
-            Console.WriteLine($"Entity Name: {concept.EntityName}");
-            Console.WriteLine($"CIK: {concept.CIK}");
+            logger.LogInformation("Entity Name: {EntityName}", concept.EntityName);
+            logger.LogInformation("CIK: {CIK}", concept.CIK);
 
             if (concept.Result != null)
             {
-                Console.WriteLine($"Tag: {concept.Result.Tag}");
-                Console.WriteLine($"Label: {concept.Result.Label}");
-                Console.WriteLine($"Total Data Points: {concept.Result.DataPoints?.Length ?? 0}");
+                logger.LogInformation("Tag: {Tag}", concept.Result.Tag);
+                logger.LogInformation("Label: {Label}", concept.Result.Label);
+                logger.LogInformation("Total Data Points: {TotalDataPoints}", concept.Result.DataPoints?.Length ?? 0);
 
                 if (concept.Result.DataPoints?.Length > 0)
                 {
-                    Console.WriteLine("\nRecent Revenue Data:");
+                    logger.LogInformation("Recent Revenue Data:");
                     foreach (var dataPoint in concept.Result.DataPoints.OrderByDescending(d => d.Filed).Take(5))
                     {
-                        Console.WriteLine($"  Period: {dataPoint.Period}, Value: {dataPoint.Value:N0}, Filed: {dataPoint.Filed:yyyy-MM-dd}");
+                        logger.LogInformation("  Period: {Period}, Value: {Value:N0}, Filed: {Filed:yyyy-MM-dd}", dataPoint.Period, dataPoint.Value, dataPoint.Filed);
                     }
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: {ex.Message}");
+            logger.LogError(ex, "Error fetching company concept");
         }
-
-        Console.WriteLine();
     }
 }

@@ -72,7 +72,7 @@ public class FactDataPoint
             JProperty? prop_val = jo.Property("val");
             if (prop_val != null && prop_val.Value.Type != JTokenType.Null)
             {
-                dataPoint.Value = Convert.ToDecimal(prop_val.Value.ToString()!);
+                dataPoint.Value = decimal.Parse(prop_val.Value.ToString()!, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
             }
 
             JProperty? prop_fy = jo.Property("fy");
