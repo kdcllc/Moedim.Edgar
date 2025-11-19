@@ -20,14 +20,17 @@ dotnet run
 ## Examples Included
 
 ### Company Facts Example
+
 Demonstrates how to retrieve all facts for a company (Apple Inc.).
 
 ### Company Concept Example
+
 Demonstrates how to query specific financial concepts like Revenues (Microsoft).
 
 ## Configuration
 
 The sample uses the following configuration:
+
 - AppName: Application name for SEC identification
 - AppVersion: Application version
 - Email: Contact email (required by SEC)

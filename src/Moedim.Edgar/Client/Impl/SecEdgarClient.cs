@@ -21,7 +21,8 @@ public class SecEdgarClient(
 {
     private readonly HttpClient _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     private readonly ILogger<SecEdgarClient> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    private readonly SecEdgarOptions _options = options.Value ?? throw new ArgumentNullException(nameof(options));
+    private readonly SecEdgarOptions _options = (options ?? throw new ArgumentNullException(nameof(options))).Value
+        ?? throw new ArgumentNullException(nameof(options), "Options value cannot be null");
 
     /// <inheritdoc />
     public async Task<string> GetAsync(string url, CancellationToken cancellationToken = default)

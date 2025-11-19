@@ -10,7 +10,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5D20
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Moedim.Edgar", "src\Moedim.Edgar\Moedim.Edgar.csproj", "{30C094C0-F494-1AF2-4770-BF6F3A33CD73}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Moedim.Edgar.Tests", "test\Moedim.Edgar.Tests\Moedim.Edgar.Tests.csproj", "{F7EF3A7F-DCEF-4E05-9A2B-EF4C17A11CAA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Moedim.Edgar.UnitTests", "test\Moedim.Edgar.UnitTests\Moedim.Edgar.UnitTests.csproj", "{F7EF3A7F-DCEF-4E05-9A2B-EF4C17A11CAA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Moedim.Edgar.Sample", "samples\Moedim.Edgar.Sample\Moedim.Edgar.Sample.csproj", "{4DC22782-629C-479F-8A66-B471DE0BA6E5}"
 EndProject
