@@ -57,12 +57,10 @@
 
   <!-- Package Files for Moedim.Edgar Library -->
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Moedim.Edgar'">
-    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
-  <!-- Package Files for Moedim.Edgar.Mcp Server -->
-  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Moedim.Edgar.Mcp'">
-    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
-  </ItemGroup>
+ <ItemGroup>
+   <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
+ </ItemGroup>
 </Project>

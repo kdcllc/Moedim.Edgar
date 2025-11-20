@@ -17,12 +17,20 @@
 
     <!-- Set up the MCP server to be a single file executable -->
     <PublishSingleFile>true</PublishSingleFile>
+
+    <!-- Exclude the build output from the package (only include published RID-specific outputs) -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    
+    <!-- Prevent packaging when no RuntimeIdentifier is set -->
+    <IsPackable Condition="'$(RuntimeIdentifier)' == ''">false</IsPackable>
   </PropertyGroup>
 
   <!-- Include additional files for the MCP server package -->
   <ItemGroup>
     <None Include=".mcp\server.json" Pack="true" PackagePath="/.mcp/" />
     <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="QUICKSTART.md" Pack="true" PackagePath="/" />
+    <None Include="TOOLS.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
   <!-- MCP-specific package references -->
@@ -35,5 +43,12 @@
   <ItemGroup>
     <ProjectReference Include="../Moedim.Edgar/Moedim.Edgar.csproj" />
   </ItemGroup>
+
+  <!-- Include the published executables in the package -->
+  <Target Name="AddPublishedOutputToPackage" AfterTargets="Publish">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(PublishDir)**\*" PackagePath="tools/$(TargetFramework)/$(RuntimeIdentifier)/" />
+    </ItemGroup>
+  </Target>
 
 </Project>
