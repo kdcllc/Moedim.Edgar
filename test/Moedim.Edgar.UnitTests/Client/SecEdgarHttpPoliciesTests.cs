@@ -16,6 +16,7 @@ public class SecEdgarHttpPoliciesTests
         _options = new SecEdgarOptions
         {
             TimeoutDelay = TimeSpan.FromMilliseconds(1),
+            RequestDelay = TimeSpan.Zero,
             MaxRetryCount = 3,
             UserAgent = "TestApp/1.0.0 (test@example.com)"
         };
@@ -84,6 +85,25 @@ public class SecEdgarHttpPoliciesTests
         var delay = SecEdgarHttpPolicies.ResolveDelay(1, outcome, _options);
 
         delay.Should().Be(_options.TimeoutDelay);
+    }
+
+    [Fact(DisplayName = "ResolveDelay uses RequestDelay fallback when configured")]
+    public void ResolveDelay_WithRequestDelay_UsesRequestDelay()
+    {
+        var options = new SecEdgarOptions
+        {
+            RequestDelay = TimeSpan.FromMilliseconds(500),
+            TimeoutDelay = TimeSpan.FromMilliseconds(1),
+            MaxRetryCount = 2,
+            UserAgent = _options.UserAgent
+        };
+
+        using var response = new HttpResponseMessage(HttpStatusCode.InternalServerError);
+        var outcome = new DelegateResult<HttpResponseMessage>(response);
+
+        var delay = SecEdgarHttpPolicies.ResolveDelay(1, outcome, options);
+
+        delay.Should().Be(TimeSpan.FromMilliseconds(500));
     }
 
     [Fact(DisplayName = "Retry count override limits total attempts")]

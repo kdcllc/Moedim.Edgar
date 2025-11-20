@@ -66,43 +66,4 @@ public class SecEdgarOptions
     /// </summary>
     public string? Email { get; set; }
 
-    /// <summary>
-    /// Validates the options configuration
-    /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when required configuration is missing</exception>
-    public void Validate()
-    {
-        if (string.IsNullOrWhiteSpace(AppName))
-        {
-            throw new InvalidOperationException("AppName is required for SEC user agent identification.");
-        }
-
-        if (string.IsNullOrWhiteSpace(AppVersion))
-        {
-            throw new InvalidOperationException("AppVersion is required for SEC user agent identification.");
-        }
-
-        if (string.IsNullOrWhiteSpace(Email))
-        {
-            throw new InvalidOperationException("Email is required for SEC user agent identification.");
-        }
-
-        if (RetryCountOverride.HasValue && RetryCountOverride.Value < 0)
-        {
-            throw new InvalidOperationException("RetryCountOverride cannot be negative.");
-        }
-
-        if (RetryBackoffMultiplier <= 0)
-        {
-            throw new InvalidOperationException("RetryBackoffMultiplier must be greater than zero.");
-        }
-
-        if (RetryDelay.HasValue && RetryDelay.Value <= TimeSpan.Zero)
-        {
-            throw new InvalidOperationException("RetryDelay must be greater than zero when specified.");
-        }
-
-        // Build UserAgent from components
-        UserAgent = $"{AppName}/{AppVersion} ({Email})";
-    }
 }

@@ -33,8 +33,18 @@ public static class EdgarServiceCollectionExtensions
                 {
                     configuration.GetSection("SecEdgar").Bind(options);
                     configureOptions(options);
-                    options.Validate();
-                });
+                })
+                .Validate(o => !string.IsNullOrWhiteSpace(o.AppName), "AppName is required for SEC user agent identification.")
+                .Validate(o => !string.IsNullOrWhiteSpace(o.AppVersion), "AppVersion is required for SEC user agent identification.")
+                .Validate(o => !string.IsNullOrWhiteSpace(o.Email), "Email is required for SEC user agent identification.")
+                .Validate(o => !o.RetryCountOverride.HasValue || o.RetryCountOverride.Value >= 0, "RetryCountOverride cannot be negative.")
+                .Validate(o => o.RetryBackoffMultiplier > 0, "RetryBackoffMultiplier must be greater than zero.")
+                .Validate(o => !o.RetryDelay.HasValue || o.RetryDelay.Value > TimeSpan.Zero, "RetryDelay must be greater than zero when specified.")
+                .PostConfigure(options =>
+                {
+                    options.UserAgent ??= $"{options.AppName}/{options.AppVersion} ({options.Email})";
+                })
+                .ValidateOnStart();
 
 
         services.TryAddTransient<ICompanyFactsService, CompanyFactsService>();

@@ -78,7 +78,9 @@ internal static class SecEdgarHttpPolicies
             }
         }
 
-        var baseDelay = options.RetryDelay ?? options.TimeoutDelay;
+        var requestDelay = options.RequestDelay > TimeSpan.Zero ? options.RequestDelay : TimeSpan.Zero;
+        var baseDelay = options.RetryDelay
+                         ?? (requestDelay > TimeSpan.Zero ? requestDelay : options.TimeoutDelay);
         if (baseDelay <= TimeSpan.Zero)
         {
             baseDelay = TimeSpan.FromMilliseconds(1);

@@ -42,11 +42,6 @@ public class SecEdgarClient(
     {
         _logger.LogDebug("Preparing SEC request for URL: {Url}", url);
 
-        if (_options.RequestDelay > TimeSpan.Zero)
-        {
-            await Task.Delay(_options.RequestDelay, cancellationToken).ConfigureAwait(false);
-        }
-
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
 
         HttpResponseMessage response;
