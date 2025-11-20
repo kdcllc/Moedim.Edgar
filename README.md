@@ -2,9 +2,9 @@
 
 C# .NET library for accessing the Security Exchange Commission's EDGAR database with modern async/await patterns and dependency injection support.
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
-[![NuGet](https://img.shields.io/badge/nuget-v1.0.0-blue)]()
-[![License](https://img.shields.io/badge/license-MIT-green)]()
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/kdcllc/Moedim.Edgar/actions)
+[![NuGet](https://img.shields.io/badge/nuget-v1.0.0-blue)](https://www.nuget.org/packages/Moedim.Edgar)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ![Stand With Israel](https://raw.githubusercontent.com/kdcllc/Moedim.Mapper/main/img/IStandWithIsrael.png)
 
@@ -139,6 +139,12 @@ services.AddSecEdgar(options =>
 
     // Optional: Maximum retry attempts (default: 10)
     options.MaxRetryCount = 3;
+
+    // Optional: Override retry behavior (defaults shown)
+    options.RetryCountOverride = 5; // total attempts including the initial call
+    options.RetryDelay = TimeSpan.FromSeconds(1); // fallback when no Retry-After header is returned
+    options.UseExponentialBackoff = true; // multiply delay after each retry
+    options.RetryBackoffMultiplier = 1.5; // growth factor for exponential strategy
 });
 ```
 

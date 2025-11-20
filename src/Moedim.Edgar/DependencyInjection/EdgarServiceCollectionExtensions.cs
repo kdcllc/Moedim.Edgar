@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moedim.Edgar.Client;
 using Moedim.Edgar.Client.Impl;
@@ -40,12 +41,18 @@ public static class EdgarServiceCollectionExtensions
         services.TryAddTransient<ICompanyConceptService, CompanyConceptService>();
 
         // Configure named HttpClient for SEC Edgar
-        services.AddHttpClient<ISecEdgarClient,SecEdgarClient>((sp, client) =>
+        services.AddHttpClient<ISecEdgarClient, SecEdgarClient>((sp, client) =>
         {
             var options = sp.GetRequiredService<IOptions<SecEdgarOptions>>().Value;
             client.DefaultRequestHeaders.Add("User-Agent", options.UserAgent);
             client.DefaultRequestHeaders.Add("Accept", "*/*");
             client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddPolicyHandler((sp, _) =>
+        {
+            var options = sp.GetRequiredService<IOptions<SecEdgarOptions>>().Value;
+            var logger = sp.GetRequiredService<ILogger<SecEdgarClient>>();
+            return SecEdgarHttpPolicies.CreateRetryPolicy(options, logger);
         });
 
         return services;

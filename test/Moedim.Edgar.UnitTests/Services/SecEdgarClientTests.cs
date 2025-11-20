@@ -22,7 +22,6 @@ public class SecEdgarClientTests : IDisposable
     {
         _loggerMock = new Mock<ILogger<SecEdgarClient>>();
         _mockHandler = new MockHttpMessageHandler();
-        _httpClient = new HttpClient(_mockHandler);
 
         var options = new SecEdgarOptions
         {
@@ -33,6 +32,7 @@ public class SecEdgarClientTests : IDisposable
         };
 
         _options = Microsoft.Extensions.Options.Options.Create(options);
+        _httpClient = new HttpClient(_mockHandler);
     }
 
     public void Dispose()
@@ -98,59 +98,6 @@ public class SecEdgarClientTests : IDisposable
         _mockHandler.RequestCount.Should().Be(1);
     }
 
-    [Fact(DisplayName = "GetAsync with 403 response retries and succeeds")]
-    public async Task GetAsync_ForbiddenThenSuccess_RetriesAndSucceeds()
-    {
-        // Arrange
-        const string expectedContent = "{\"data\": \"test\"}";
-        _mockHandler.SetResponses(
-            new HttpResponseMessage(HttpStatusCode.Forbidden),
-            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(expectedContent) }
-        );
-        var client = new SecEdgarClient(_httpClient, _options, _loggerMock.Object);
-
-        // Act
-        var result = await client.GetAsync("https://test.com/api");
-
-        // Assert
-        result.Should().Be(expectedContent);
-        _mockHandler.RequestCount.Should().Be(2);
-    }
-
-    [Fact(DisplayName = "GetAsync with 503 response retries and succeeds")]
-    public async Task GetAsync_ServiceUnavailableThenSuccess_RetriesAndSucceeds()
-    {
-        // Arrange
-        const string expectedContent = "{\"data\": \"test\"}";
-        _mockHandler.SetResponses(
-            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
-            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(expectedContent) }
-        );
-        var client = new SecEdgarClient(_httpClient, _options, _loggerMock.Object);
-
-        // Act
-        var result = await client.GetAsync("https://test.com/api");
-
-        // Assert
-        result.Should().Be(expectedContent);
-        _mockHandler.RequestCount.Should().Be(2);
-    }
-
-    [Fact(DisplayName = "GetAsync exceeding max retries throws InvalidOperationException")]
-    public async Task GetAsync_ExceedingMaxRetries_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        _mockHandler.SetResponse(HttpStatusCode.Forbidden);
-        var client = new SecEdgarClient(_httpClient, _options, _loggerMock.Object);
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => client.GetAsync("https://test.com/api"));
-
-        exception.Message.Should().Contain("Exceeded maximum retry count");
-        _mockHandler.RequestCount.Should().Be(3); // MaxRetryCount = 3
-    }
-
     [Fact(DisplayName = "GetAsync with cancellation token cancels request")]
     public async Task GetAsync_WithCancellationToken_CancelsRequest()
     {
@@ -186,40 +133,18 @@ public class SecEdgarClientTests : IDisposable
         _mockHandler.RequestCount.Should().Be(1);
     }
 
-    [Fact(DisplayName = "GetStreamAsync with retry logic succeeds after throttling")]
-    public async Task GetStreamAsync_AfterThrottling_Succeeds()
+    [Fact(DisplayName = "GetAsync with non-success status throws InvalidOperationException")]
+    public async Task GetAsync_NonSuccessStatus_ThrowsInvalidOperationException()
     {
         // Arrange
-        const string expectedContent = "{\"data\": \"test\"}";
-        _mockHandler.SetResponses(
-            new HttpResponseMessage(HttpStatusCode.Forbidden),
-            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(expectedContent) }
-        );
-        var client = new SecEdgarClient(_httpClient, _options, _loggerMock.Object);
-
-        // Act
-        var stream = await client.GetStreamAsync("https://test.com/api");
-
-        // Assert
-        stream.Should().NotBeNull();
-        using var reader = new StreamReader(stream);
-        var content = await reader.ReadToEndAsync();
-        content.Should().Be(expectedContent);
-        _mockHandler.RequestCount.Should().Be(2);
-    }
-
-    [Fact(DisplayName = "GetStreamAsync exceeding max retries throws InvalidOperationException")]
-    public async Task GetStreamAsync_ExceedingMaxRetries_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        _mockHandler.SetResponse(HttpStatusCode.ServiceUnavailable);
+        _mockHandler.SetResponse(HttpStatusCode.Forbidden);
         var client = new SecEdgarClient(_httpClient, _options, _loggerMock.Object);
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => client.GetStreamAsync("https://test.com/api"));
+            () => client.GetAsync("https://test.com/api"));
 
         exception.Message.Should().Contain("Exceeded maximum retry count");
-        _mockHandler.RequestCount.Should().Be(3);
+        _mockHandler.RequestCount.Should().Be(1);
     }
 }
