@@ -2,10 +2,9 @@ using Microsoft.Extensions.Options;
 using Moedim.Edgar.Client;
 using Moedim.Edgar.Models.Data;
 using Moedim.Edgar.Options;
-using Moedim.Edgar.Services.Data;
 using Newtonsoft.Json.Linq;
 
-namespace Moedim.Edgar.Services.Impl.Data;
+namespace Moedim.Edgar.Services.Impl;
 
 /// <summary>
 /// Service for querying all facts for a company from SEC EDGAR

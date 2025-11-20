@@ -1,16 +1,15 @@
-using System.Threading;
-using System.Threading.Tasks;
+namespace Moedim.Edgar.Services;
 
-namespace Moedim.Edgar.Utils
+/// <summary>
+/// Interface for looking up company information in SEC EDGAR
+/// </summary>
+public interface ICompanyLookupService
 {
     /// <summary>
-    /// Service for looking up company information in SEC Edgar
+    /// Gets the CIK (Central Index Key) for a company from its trading symbol
     /// </summary>
-    public interface ICompanyLookupService
-    {
-        /// <summary>
-        /// Get the CIK (Central Index Key) for a company from its trading symbol
-        /// </summary>
-        Task<string> GetCikFromSymbolAsync(string symbol, CancellationToken cancellationToken = default);
-    }
+    /// <param name="symbol">The trading symbol of the company</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The CIK as a string</returns>
+    Task<string> GetCikFromSymbolAsync(string symbol, CancellationToken cancellationToken = default);
 }

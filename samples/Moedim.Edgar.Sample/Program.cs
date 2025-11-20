@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Configuration;
-using Moedim.Edgar.Services.Data;
+using Moedim.Edgar.Services;
 
 namespace Moedim.Edgar.Sample;
 

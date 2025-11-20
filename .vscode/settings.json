@@ -15,4 +15,7 @@
   ],
   "github.copilot.chat.codesearch.enabled": true,
   "chat.agent.maxRequests": 100,
+  "cSpell.words": [
+    "Moedim"
+  ],
 }

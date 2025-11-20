@@ -1,17 +1,17 @@
-using System.Threading;
-using System.Threading.Tasks;
-using Moedim.Edgar.Models;
+using Moedim.Edgar.Models.Fillings;
 
-namespace Moedim.Edgar.Filings
+namespace Moedim.Edgar.Services;
+
+/// <summary>
+/// Interface for searching latest SEC EDGAR filings across all companies
+/// </summary>
+public interface IEdgarLatestFilingsService
 {
     /// <summary>
-    /// Service for searching latest SEC Edgar filings across all companies
+    /// Searches for latest filings across all companies
     /// </summary>
-    public interface IEdgarLatestFilingsService
-    {
-        /// <summary>
-        /// Search for latest filings across all companies
-        /// </summary>
-        Task<EdgarLatestFilingResult[]> SearchAsync(EdgarLatestFilingsQuery query, CancellationToken cancellationToken = default);
-    }
+    /// <param name="query">The search query parameters</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>An array of latest filing results</returns>
+    Task<EdgarLatestFilingResult[]> SearchAsync(EdgarLatestFilingsQuery query, CancellationToken cancellationToken = default);
 }

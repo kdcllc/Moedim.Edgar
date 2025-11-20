@@ -5,8 +5,9 @@ using Microsoft.Extensions.Options;
 using Moedim.Edgar.Client;
 using Moedim.Edgar.Client.Impl;
 using Moedim.Edgar.Options;
-using Moedim.Edgar.Services.Data;
-using Moedim.Edgar.Services.Impl.Data;
+using Moedim.Edgar.Services;
+using Moedim.Edgar.Services.Impl;
+
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -49,6 +50,10 @@ public static class EdgarServiceCollectionExtensions
 
         services.TryAddTransient<ICompanyFactsService, CompanyFactsService>();
         services.TryAddTransient<ICompanyConceptService, CompanyConceptService>();
+        services.TryAddTransient<ICompanyLookupService, CompanyLookupService>();
+        services.TryAddTransient<IEdgarLatestFilingsService, EdgarLatestFilingsService>();
+        services.TryAddTransient<IEdgarSearchService, EdgarSearchService>();
+        services.TryAddTransient<IFilingDetailsService, FilingDetailsService>();
 
         // Configure named HttpClient for SEC Edgar
         services.AddHttpClient<ISecEdgarClient, SecEdgarClient>((sp, client) =>

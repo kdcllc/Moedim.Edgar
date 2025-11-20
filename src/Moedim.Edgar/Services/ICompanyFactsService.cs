@@ -1,6 +1,6 @@
 using Moedim.Edgar.Models.Data;
 
-namespace Moedim.Edgar.Services.Data;
+namespace Moedim.Edgar.Services;
 
 /// <summary>
 /// Interface for querying all facts for a company from SEC EDGAR
