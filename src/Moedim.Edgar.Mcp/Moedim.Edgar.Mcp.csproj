@@ -20,7 +20,7 @@
 
     <!-- Exclude the build output from the package (only include published RID-specific outputs) -->
     <IncludeBuildOutput>false</IncludeBuildOutput>
-    
+
     <!-- Prevent packaging when no RuntimeIdentifier is set -->
     <IsPackable Condition="'$(RuntimeIdentifier)' == ''">false</IsPackable>
   </PropertyGroup>
