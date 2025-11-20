@@ -41,6 +41,16 @@
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
+  <!-- Moedim.Edgar.Mcp MCP Server Package Information -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Moedim.Edgar.Mcp'">
+    <PackageId>Moedim.Edgar.Mcp</PackageId>
+    <Description>MCP server for accessing SEC EDGAR filings and financial data. Provides AI assistants with tools to query company facts, concepts, and filings through the SEC's EDGAR database.</Description>
+    <PackageTags>AI;MCP;server;stdio;SEC;EDGAR;Finance;Financial-Data</PackageTags>
+    <PackageProjectUrl>https://github.com/kdcllc/Moedim.Edgar</PackageProjectUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
@@ -49,5 +59,10 @@
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Moedim.Edgar'">
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <!-- Package Files for Moedim.Edgar.Mcp Server -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Moedim.Edgar.Mcp'">
+    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>

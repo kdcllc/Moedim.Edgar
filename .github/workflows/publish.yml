@@ -67,11 +67,13 @@ jobs:
       - name: Test
         run: dotnet test --no-build --verbosity normal
 
-      - name: Package Moedim.Mapper
+      - name: Package Moedim.Edgar
         run: |
-          dotnet pack src/Moedim.Mapper/Moedim.Mapper.csproj --configuration ${{ env.configuration }} -p:Version=${{ steps.gitversion.outputs.semVer }} -o packages
-          dotnet pack src/Moedim.Mapper.SourceGenerator/Moedim.Mapper.SourceGenerator.csproj --configuration ${{ env.configuration }} -p:Version=${{ steps.gitversion.outputs.semVer }} -o packages
-          dotnet pack tools/Moedim.Mapper.Migration.Tool/Moedim.Mapper.Migration.Tool.csproj --configuration ${{ env.configuration }} -p:Version=${{ steps.gitversion.outputs.semVer }} -o packages
+          dotnet pack src/Moedim.Edgar/Moedim.Edgar.csproj --configuration ${{ env.configuration }} -p:Version=${{ steps.gitversion.outputs.semVer }} -o packages
+
+      - name: Package Moedim.Edgar.Mcp
+        run: |
+          dotnet pack src/Moedim.Edgar.Mcp/Moedim.Edgar.Mcp.csproj --configuration ${{ env.configuration }} -p:Version=${{ steps.gitversion.outputs.semVer }} -o packages
 
       - name: Publish Nuget Packages
         run: dotnet nuget push packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate -n

@@ -1,37 +1,74 @@
-# MCP Server
+# Moedim.Edgar.Mcp - MCP Server for SEC EDGAR Data
 
-This README was created using the C# MCP server project template.
-It demonstrates how you can easily create an MCP server using C# and publish it as a NuGet package.
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/kdcllc/Moedim.Edgar/actions)
+[![NuGet](https://img.shields.io/badge/nuget-v1.0.0-blue)](https://www.nuget.org/packages/Moedim.Edgar.Mcp)
+[![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 
-The MCP server is built as a self-contained application and does not require the .NET runtime to be installed on the target machine.
-However, since it is self-contained, it must be built for each target platform separately.
-By default, the template is configured to build for:
-* `win-x64`
-* `win-arm64`
-* `osx-arm64`
-* `linux-x64`
-* `linux-arm64`
-* `linux-musl-x64`
+A Model Context Protocol (MCP) server that provides AI assistants with access to SEC EDGAR filings and financial data. Built with the [ModelContextProtocol](https://www.nuget.org/packages/ModelContextProtocol) C# SDK and the [Moedim.Edgar](https://www.nuget.org/packages/Moedim.Edgar) library.
 
-If your users require more platforms to be supported, update the list of runtime identifiers in the project's `<RuntimeIdentifiers />` element.
+## Features
 
-See [aka.ms/nuget/mcp/guide](https://aka.ms/nuget/mcp/guide) for the full guide.
+- **SEC EDGAR Integration** - Direct access to Securities and Exchange Commission EDGAR database
+- **Company Facts** - Query comprehensive company financial facts and filings
+- **Financial Concepts** - Access specific financial concepts (revenues, assets, etc.)
+- **Type-Safe** - Built on strongly-typed models with full async/await support
+- **Cross-Platform** - Self-contained packages for Windows, macOS, and Linux
 
-Please note that this template is currently in an early preview stage. If you have feedback, please take a [brief survey](http://aka.ms/dotnet-mcp-template-survey).
+## Installation
 
-## Checklist before publishing to NuGet.org
+### From NuGet.org
 
-- Test the MCP server locally using the steps below.
-- Update the package metadata in the .csproj file, in particular the `<PackageId>`.
-- Update `.mcp/server.json` to declare your MCP server's inputs.
-  - See [configuring inputs](https://aka.ms/nuget/mcp/guide/configuring-inputs) for more details.
-- Pack the project using `dotnet pack`.
+Once published, you can add the MCP server to your preferred IDE configuration:
 
-The `bin/Release` directory will contain the package file (.nupkg), which can be [published to NuGet.org](https://learn.microsoft.com/nuget/nuget-org/publish-a-package).
+#### Visual Studio Code
 
-## Developing locally
+Create or update `.vscode/mcp.json` in your workspace:
 
-To test this MCP server from source code (locally) without using a built MCP server package, you can configure your IDE to run the project directly using `dotnet run`.
+```json
+{
+  "servers": {
+    "Moedim.Edgar.Mcp": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": [
+        "Moedim.Edgar.Mcp",
+        "--version",
+        "1.0.0",
+        "--yes"
+      ]
+    }
+  }
+}
+```
+
+#### Visual Studio
+
+Create or update `.mcp.json` in your solution directory:
+
+```json
+{
+  "servers": {
+    "Moedim.Edgar.Mcp": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": [
+        "Moedim.Edgar.Mcp",
+        "--version",
+        "1.0.0",
+        "--yes"
+      ]
+    }
+  }
+}
+```
+
+## Local Development and Testing
+
+To test this MCP server from source code without using a built package:
+
+### 1. Configure Local Testing
+
+Create or update `.vscode/mcp.json` in the workspace root:
 
 ```json
 {
@@ -42,57 +79,134 @@ To test this MCP server from source code (locally) without using a built MCP ser
       "args": [
         "run",
         "--project",
-        "<PATH TO PROJECT DIRECTORY>"
+        "src/Moedim.Edgar.Mcp/Moedim.Edgar.Mcp.csproj"
       ]
     }
   }
 }
 ```
 
-## Testing the MCP Server
+### 2. Test with GitHub Copilot
 
-Once configured, you can ask Copilot Chat for a random number, for example, `Give me 3 random numbers`. It should prompt you to use the `get_random_number` tool on the `Moedim.Edgar.Mcp` MCP server and show you the results.
+Once configured, you can interact with the MCP server through GitHub Copilot Chat:
+
+- "Get company facts for Apple (CIK: 320193)"
+- "What are the revenues for Microsoft?"
+- "Show me recent filings for Tesla"
 
 ## Publishing to NuGet.org
 
-1. Run `dotnet pack -c Release` to create the NuGet package
-2. Publish to NuGet.org with `dotnet nuget push bin/Release/*.nupkg --api-key <your-api-key> --source https://api.nuget.org/v3/index.json`
+### 1. Pack the Project
 
-## Using the MCP Server from NuGet.org
-
-Once the MCP server package is published to NuGet.org, you can configure it in your preferred IDE. Both VS Code and Visual Studio use the `dnx` command to download and install the MCP server package from NuGet.org.
-
-- **VS Code**: Create a `<WORKSPACE DIRECTORY>/.vscode/mcp.json` file
-- **Visual Studio**: Create a `<SOLUTION DIRECTORY>\.mcp.json` file
-
-For both VS Code and Visual Studio, the configuration file uses the following server definition:
-
-```json
-{
-  "servers": {
-    "Moedim.Edgar.Mcp": {
-      "type": "stdio",
-      "command": "dnx",
-      "args": [
-        "<your package ID here>",
-        "--version",
-        "<your package version here>",
-        "--yes"
-      ]
-    }
-  }
-}
+```bash
+dotnet pack src/Moedim.Edgar.Mcp/Moedim.Edgar.Mcp.csproj -c Release
 ```
 
-## More information
+This creates platform-specific packages for:
+- `win-x64`, `win-arm64`
+- `osx-arm64`
+- `linux-x64`, `linux-arm64`, `linux-musl-x64`
 
-.NET MCP servers use the [ModelContextProtocol](https://www.nuget.org/packages/ModelContextProtocol) C# SDK. For more information about MCP:
+### 2. Publish to NuGet
 
-- [Official Documentation](https://modelcontextprotocol.io/)
-- [Protocol Specification](https://spec.modelcontextprotocol.io/)
-- [GitHub Organization](https://github.com/modelcontextprotocol)
+```bash
+dotnet nuget push bin/Release/*.nupkg \
+  --api-key <your-api-key> \
+  --source https://api.nuget.org/v3/index.json
+```
 
-Refer to the VS Code or Visual Studio documentation for more information on configuring and using MCP servers:
+**Important**: Publish all `.nupkg` files to ensure every supported platform can run the MCP server.
 
-- [Use MCP servers in VS Code (Preview)](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
-- [Use MCP servers in Visual Studio (Preview)](https://learn.microsoft.com/visualstudio/ide/mcp-servers)
+### Testing Before Production
+
+Test the publishing flow using the NuGet test environment at [int.nugettest.org](https://int.nugettest.org/):
+
+```bash
+dotnet nuget push bin/Release/*.nupkg \
+  --api-key <your-test-api-key> \
+  --source https://apiint.nugettest.org/v3/index.json
+```
+
+## Available Tools
+
+The MCP server provides the following tools (example from template - update based on your implementation):
+
+- `get_random_number` - Generate random numbers (sample tool)
+- Additional SEC EDGAR tools coming soon
+
+## Technical Details
+
+### Platform Support
+
+The MCP server is built as a self-contained application and does not require the .NET runtime on the target machine. It's pre-compiled for the following platforms:
+
+- Windows x64
+- Windows ARM64
+- macOS ARM64 (Apple Silicon)
+- Linux x64
+- Linux ARM64
+- Linux musl x64 (Alpine Linux)
+
+### Requirements
+
+- **Development**: .NET 10.0 SDK or later
+- **Runtime**: None (self-contained deployment)
+
+## Project Structure
+
+```
+Moedim.Edgar.Mcp/
+├── .mcp/
+│   └── server.json          # MCP server metadata
+├── Tools/
+│   └── RandomNumberTools.cs # MCP tools implementation
+├── Program.cs               # Application entry point
+├── README.md                # This file
+└── Moedim.Edgar.Mcp.csproj  # Project configuration
+```
+
+## More Information
+
+### MCP Resources
+
+- [Official MCP Documentation](https://modelcontextprotocol.io/)
+- [MCP Protocol Specification](https://spec.modelcontextprotocol.io/)
+- [MCP GitHub Organization](https://github.com/modelcontextprotocol)
+
+### .NET MCP Resources
+
+- [Build MCP Server with .NET Guide](https://learn.microsoft.com/dotnet/ai/quickstarts/build-mcp-server)
+- [MCP .NET Samples](https://github.com/microsoft/mcp-dotnet-samples)
+- [ModelContextProtocol NuGet Package](https://www.nuget.org/packages/ModelContextProtocol)
+
+### IDE Documentation
+
+- [Use MCP servers in VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
+- [Use MCP servers in Visual Studio](https://learn.microsoft.com/visualstudio/ide/mcp-servers)
+
+### Moedim.Edgar Library
+
+- [Moedim.Edgar on NuGet](https://www.nuget.org/packages/Moedim.Edgar)
+- [GitHub Repository](https://github.com/kdcllc/Moedim.Edgar)
+- [SEC EDGAR API Documentation](https://www.sec.gov/edgar/sec-api-documentation)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
+
+## Acknowledgments
+
+Built with:
+- [ModelContextProtocol](https://www.nuget.org/packages/ModelContextProtocol) - MCP C# SDK
+- [Moedim.Edgar](https://www.nuget.org/packages/Moedim.Edgar) - SEC EDGAR data library
+- [Microsoft.Extensions.Hosting](https://www.nuget.org/packages/Microsoft.Extensions.Hosting) - .NET Generic Host
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Support
+
+If you find this project helpful, please give it a ⭐ on [GitHub](https://github.com/kdcllc/Moedim.Edgar)!
+
+[![buymeacoffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/vyve0og)
