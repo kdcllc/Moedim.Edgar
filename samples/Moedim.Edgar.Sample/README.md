@@ -1,213 +1,362 @@
-# Moedim.Edgar Sample Application
+# Moedim Edgar CLI - SEC Filing Service
 
-This comprehensive sample application demonstrates all features and services available in the Moedim.Edgar library for accessing SEC EDGAR data.
+A command-line interface for accessing SEC EDGAR data using the Moedim.Edgar library.
 
 ## Overview
 
-The sample showcases complete usage of all six core services:
+This CLI tool provides quick access to SEC EDGAR filing data through simple command-line commands. It leverages the same `Moedim.Edgar` library services used by applications but exposes them through an easy-to-use command-line interface.
 
-1. **Company Lookup Service** - Convert stock symbols to CIK numbers
-2. **Company Facts Service** - Retrieve all financial facts for a company
-3. **Company Concept Service** - Query specific financial concepts (Revenue, Assets, etc.)
-4. **Edgar Search Service** - Search filings by company with filtering and pagination
-5. **Edgar Latest Filings Service** - Get the latest filings across all companies
-6. **Filing Details Service** - Extract detailed information from individual filings
+## Features
 
-## Features Demonstrated
+- **Company Lookup**: Convert stock symbols to CIK numbers
+- **Filing Search**: Search company filings with optional form type filtering
+- **Filing Details**: Extract detailed filing metadata and document lists
+- **Company Facts**: Retrieve all financial facts for a company
+- **Concept Queries**: Get specific financial concept data (Revenues, Assets, etc.)
+- **Latest Filings**: Monitor recent filings across all companies
 
-### Company Lookup Service
-- Lookup CIK by stock symbol (AAPL, MSFT, TSLA)
-- Symbol to CIK conversion
+## Prerequisites
 
-### Company Facts Service
-- Retrieve all financial facts for a company
-- Filter facts by tag patterns
-- Analyze fact data points
-- Work with US-GAAP taxonomy data
+- .NET 8.0 SDK or later
 
-### Company Concept Service
-- Query specific financial concepts (Revenues, Assets, Liabilities)
-- Analyze concept data points over time
-- Filter by filing period
-- Access historical financial data
-
-### Edgar Search Service
-- Search all filings for a company by symbol or CIK
-- Filter by form type (10-K, 10-Q, 8-K, etc.)
-- Apply date filters (PriorTo parameter)
-- Control ownership filing inclusion/exclusion
-- Pagination support (10, 40, 80, 100 results per page)
-- Navigate through multiple pages of results
-
-### Edgar Latest Filings Service
-- Get latest filings across all companies
-- Filter by form type (10-K, 10-Q, 8-K, etc.)
-- Control ownership filing filters (Include, Exclude, Only)
-- Various page size options
-- Real-time latest filing discovery
-
-### Filing Details Service
-- Extract complete filing metadata
-- Retrieve CIK from filing URLs
-- List document format files
-- List data files (XBRL, exhibits, etc.)
-- Download specific documents
-- Download XBRL instance documents
-- Parse filing accession numbers, dates, and entity information
-
-## Running the Sample
+## Building the CLI
 
 ```bash
 # Navigate to the sample directory
 cd samples/Moedim.Edgar.Sample
 
-# Run the application
-dotnet run
+# Build the project
+dotnet build -c Release
 ```
 
-## Configuration
+## Running the CLI
 
-The sample configures the SEC EDGAR client with:
+```bash
+# Run directly with dotnet run
+dotnet run -- <command> [arguments]
 
-```csharp
-services.AddSecEdgar(options =>
-{
-    options.AppName = "Moedim.Edgar.Sample";
-    options.AppVersion = "1.0.0";
-    options.Email = "sample@example.com";
-    options.RequestDelay = TimeSpan.FromMilliseconds(100);
-    options.MaxRetryCount = 3;
-    options.TimeoutDelay = TimeSpan.FromSeconds(30);
-    options.UseExponentialBackoff = true;
-    options.RetryBackoffMultiplier = 2;
-});
+# Or build and run the executable
+dotnet build -c Release
+dotnet run --no-build -c Release -- <command> [arguments]
 ```
 
-### Important SEC EDGAR Requirements
+## Commands
 
-**User-Agent Header**: The SEC requires all automated requests to include a proper User-Agent header with:
-- Application name
-- Version number
-- Contact email
+### Company Lookup
 
-**Rate Limiting**: The SEC recommends:
-- No more than 10 requests per second
-- Implement delays between requests
-- Use retry logic with exponential backoff
-- Respect `Retry-After` headers
+Get company information by ticker symbol or CIK.
 
-## Example Companies Used
+```bash
+dotnet run -- company <ticker|cik>
+```
 
-The sample demonstrates queries for well-known companies:
+**Example:**
+```bash
+dotnet run -- company AAPL
+dotnet run -- company 320193
+```
+
+**Output:**
+```
+Looking up company: AAPL...
+
+Symbol/Ticker: AAPL
+CIK: 0000320193
+```
+
+### Get Company Filings
+
+Search for filings by company ticker or CIK, optionally filtered by form type.
+
+```bash
+dotnet run -- filings <ticker|cik> [form-type]
+```
+
+**Examples:**
+```bash
+# Get all filings for Microsoft
+dotnet run -- filings MSFT
+
+# Get only 10-K annual reports
+dotnet run -- filings MSFT 10-K
+
+# Get quarterly reports (10-Q)
+dotnet run -- filings AAPL 10-Q
+
+# Get current reports (8-K)
+dotnet run -- filings TSLA 8-K
+```
+
+**Output:**
+```
+Fetching 10-K filings for MSFT...
+
+Found 40 filing(s):
+
+Form: 10-K
+  Filed: 2024-07-30
+  Description: Annual report [Section 13 and 15(d)...]
+  URL: https://www.sec.gov/cgi-bin/browse-edgar?...
+
+Form: 10-K
+  Filed: 2023-07-27
+  Description: Annual report [Section 13 and 15(d)...]
+  URL: https://www.sec.gov/cgi-bin/browse-edgar?...
+```
+
+### Get Filing Details
+
+Retrieve detailed information about a specific filing using its documents URL.
+
+```bash
+dotnet run -- filing-details <documents-url>
+```
+
+**Example:**
+```bash
+dotnet run -- filing-details "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193&type=10-K&dateb=&owner=exclude&count=10&search_text="
+```
+
+**Output:**
+```
+Filing Details:
+  Entity: Apple Inc. (CIK: 0000320193)
+  Form Type: 10-K
+  Accession: 0000320193-24-000123
+  Filing Date: 2024-10-26
+  Period of Report: 2024-09-28
+  Accepted: 2024-10-26 18:04:22
+
+Document Format Files (45):
+  [1] 10-K - Annual report
+      File: aapl-20240928.htm (10-K, 15,234,567 bytes)
+  [2] EX-10.1 - Material Contract
+      File: ex10-1.htm (EX-10.1, 123,456 bytes)
+...
+
+Data Files (12):
+  [1] XBRL INSTANCE DOCUMENT
+      File: aapl-20240928.xml (EX-101.INS)
+  [2] XBRL TAXONOMY EXTENSION SCHEMA
+      File: aapl-20240928.xsd (EX-101.SCH)
+...
+```
+
+### Get Company Facts
+
+Retrieve all financial facts (US-GAAP data) for a company by CIK.
+
+```bash
+dotnet run -- facts <cik>
+```
+
+**Example:**
+```bash
+dotnet run -- facts 320193
+```
+
+**Output:**
+```
+Fetching all facts for CIK 320193...
+
+Entity: Apple Inc. (CIK: 320193)
+Total Facts: 1,247
+
+Sample Facts (first 20):
+  - Net sales
+    Tag: Revenues, Data Points: 156
+    Latest: $391,035,000,000 (Period: 2024-09-28)
+    
+  - Total assets
+    Tag: Assets, Data Points: 142
+    Latest: $364,980,000,000 (Period: 2024-09-28)
+...
+```
+
+### Get Specific Concept
+
+Query a specific financial concept (e.g., Revenues, Assets, Liabilities) for a company.
+
+```bash
+dotnet run -- concept <cik> <tag>
+```
+
+**Examples:**
+```bash
+# Get revenue data for Apple
+dotnet run -- concept 320193 Revenues
+
+# Get assets for Microsoft
+dotnet run -- concept 789019 Assets
+
+# Get liabilities for Tesla
+dotnet run -- concept 1318605 Liabilities
+```
+
+**Output:**
+```
+Fetching Revenues for CIK 320193...
+
+Entity: Apple Inc. (CIK: 320193)
+Concept: Net sales (Revenues)
+Description: Amount of revenue recognized from goods sold...
+Total Data Points: 156
+
+Recent Filings:
+  Period: 2024-09-28
+    Value: $391,035,000,000
+    Filed: 2024-10-31
+    Form: 10-K
+    
+  Period: 2024-06-29
+    Value: $85,777,000,000
+    Filed: 2024-08-01
+    Form: 10-Q
+...
+```
+
+### Get Latest Filings
+
+Get the most recent filings across all companies, optionally filtered by form type.
+
+```bash
+dotnet run -- latest [form-type]
+```
+
+**Examples:**
+```bash
+# Get all latest filings
+dotnet run -- latest
+
+# Get only latest 10-K filings
+dotnet run -- latest 10-K
+
+# Get latest 8-K current reports
+dotnet run -- latest 8-K
+```
+
+**Output:**
+```
+Fetching latest filings (10-K)...
+
+Latest 40 filing(s):
+
+Company: Apple Inc.
+  CIK: 0000320193
+  Form: 10-K
+  Filed: 2024-10-31
+  Description: Annual report...
+
+Company: Microsoft Corporation
+  CIK: 0000789019
+  Form: 10-K
+  Filed: 2024-07-30
+  Description: Annual report...
+...
+```
+
+## Common Form Types
+
+| Form | Description |
+|------|-------------|
+| 10-K | Annual report (comprehensive financial information) |
+| 10-Q | Quarterly report (unaudited financial statements) |
+| 8-K | Current report (material events or corporate changes) |
+| DEF 14A | Proxy statement (annual meeting information) |
+| Form 3 | Initial statement of beneficial ownership |
+| Form 4 | Statement of changes in beneficial ownership |
+| Form 5 | Annual statement of beneficial ownership |
+| S-1 | Initial registration statement for new securities |
+| 20-F | Annual report for foreign private issuers |
+
+## Well-Known Companies
 
 | Company | Symbol | CIK |
 |---------|--------|-----|
 | Apple Inc. | AAPL | 320193 |
 | Microsoft Corporation | MSFT | 789019 |
 | Tesla, Inc. | TSLA | 1318605 |
-
-## Common Form Types
-
-| Form | Description |
-|------|-------------|
-| 10-K | Annual report |
-| 10-Q | Quarterly report |
-| 8-K | Current report (material events) |
-| DEF 14A | Proxy statement |
-| Form 3 | Initial statement of beneficial ownership |
-| Form 4 | Statement of changes in beneficial ownership |
-| Form 5 | Annual statement of beneficial ownership |
-
-## Error Handling
-
-Each example includes proper error handling:
-
-```csharp
-try
-{
-    var results = await service.QueryAsync(...);
-    // Process results
-}
-catch (Exception ex)
-{
-    logger.LogError(ex, "Error message");
-}
-```
-
-## Output Example
-
-The sample produces comprehensive output showing:
-
-- Service configuration details
-- Request/response information
-- Data structure exploration
-- Pagination demonstration
-- Error scenarios
-
-## Learning Path
-
-1. Start with **Company Lookup** to understand CIK resolution
-2. Explore **Company Facts** to see all available data
-3. Use **Company Concept** for specific financial metrics
-4. Try **Edgar Search** for filing discovery
-5. Check **Latest Filings** for recent submissions
-6. Dive into **Filing Details** for document-level access
-
-## Additional Resources
-
-- [SEC EDGAR Developer Resources](https://www.sec.gov/developer)
-- [XBRL Taxonomy Documentation](https://www.sec.gov/structureddata/osd-inline-xbrl.html)
-- [Moedim.Edgar Documentation](../../README.md)
-
-## Notes
-
-- All examples include comprehensive error handling
-- The sample respects SEC rate limiting guidelines
-- Real-time data may vary from examples shown
-- Some companies may have limited or no data for certain concepts
-- XBRL documents are typically large XML files
-
-## License
-
-This sample is part of the Moedim.Edgar project and follows the same license.
-
-## Features Demonstrated
-
-- Dependency Injection setup
-- Configuring SEC EDGAR services
-- Retrieving company facts
-- Querying specific financial concepts
-- Error handling
-
-## Running the Sample
-
-```bash
-cd samples/Moedim.Edgar.Sample
-dotnet run
-```
-
-## Examples Included
-
-### Company Facts Example
-
-Demonstrates how to retrieve all facts for a company (Apple Inc.).
-
-### Company Concept Example
-
-Demonstrates how to query specific financial concepts like Revenues (Microsoft).
+| Amazon.com, Inc. | AMZN | 1018724 |
+| Alphabet Inc. (Google) | GOOGL | 1652044 |
+| Meta Platforms, Inc. (Facebook) | META | 1326801 |
 
 ## Configuration
 
-The sample uses the following configuration:
+The CLI is configured in `Program.cs` with the following settings:
 
-- AppName: Application name for SEC identification
-- AppVersion: Application version
-- Email: Contact email (required by SEC)
-- Request Delay: 100ms between requests
-- Max Retry Count: 3 attempts
+```csharp
+services.AddSecEdgar(options =>
+{
+    options.AppName = "Moedim.Edgar.CLI";
+    options.AppVersion = "1.0.0";
+    options.Email = "cli@example.com";
+    options.RequestDelay = TimeSpan.FromMilliseconds(100);
+    options.MaxRetryCount = 3;
+});
+```
 
-## Important Notes
+### SEC EDGAR Requirements
 
-- The SEC requires AppName, AppVersion, and Email for API access
-- Respect rate limits (10 requests per second maximum)
-- Use appropriate delays between requests
+**User-Agent Header**: The SEC requires all automated requests to include:
+- Application name
+- Version number
+- Contact email address
+
+**Rate Limiting**: The SEC recommends:
+- No more than 10 requests per second
+- Implement delays between requests (configured as 100ms)
+- Use retry logic for failed requests
+- Respect `Retry-After` headers
+
+## Error Handling
+
+The CLI includes comprehensive error handling:
+
+- Invalid commands display help information
+- Missing required arguments show usage examples
+- Failed API calls display error messages
+- CIK validation ensures proper numeric format
+
+## Development
+
+### Project Structure
+
+```
+Moedim.Edgar.Sample/
+├── Program.cs           # CLI implementation
+├── GlobalUsings.cs      # Global using directives
+├── README.md            # This file
+└── Moedim.Edgar.Sample.csproj
+```
+
+### Adding New Commands
+
+To add a new command:
+
+1. Add a case to the switch statement in `Program.cs`
+2. Create a static method to handle the command
+3. Update the help text
+4. Test the command
+
+**Example:**
+```csharp
+case "newcommand":
+    if (args.Length < 2)
+    {
+        Console.WriteLine("Error: Please provide required arguments");
+        return;
+    }
+    await HandleNewCommand(service, args[1]);
+    break;
+```
+
+## Additional Resources
+
+- [Moedim.Edgar Library Documentation](../../README.md)
+- [SEC EDGAR Developer Resources](https://www.sec.gov/developer)
+- [XBRL Taxonomy Documentation](https://www.sec.gov/structureddata/osd-inline-xbrl.html)
+- [Company Search Tool](https://www.sec.gov/edgar/searchedgar/companysearch.html)
+
+## License
+
+This CLI tool is part of the Moedim.Edgar project and follows the same license.

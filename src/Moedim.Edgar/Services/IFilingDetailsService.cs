@@ -54,4 +54,24 @@ public interface IFilingDetailsService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A stream containing the XBRL instance document</returns>
     Task<Stream> DownloadXbrlDocumentAsync(string documentsUrl, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the complete content of a filing document in the specified format
+    /// </summary>
+    /// <param name="accessionNumber">The filing accession number</param>
+    /// <param name="tickerOrCik">Optional ticker symbol or CIK to help locate the filing</param>
+    /// <param name="format">Output format: 'markdown' (default) or 'html'</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The complete filing content in the requested format</returns>
+    Task<string?> GetFilingDocumentAsync(string accessionNumber, string? tickerOrCik = null, string? format = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets sections from a filing based on the request parameters
+    /// </summary>
+    /// <param name="accessionNumber">The filing accession number</param>
+    /// <param name="request">Section request parameters</param>
+    /// <param name="tickerOrCik">Optional ticker symbol or CIK to help locate the filing</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Filing sections result with preview or full content</returns>
+    Task<FilingSectionsResult?> GetFilingSectionsAsync(string accessionNumber, FilingSectionsRequest request, string? tickerOrCik = null, CancellationToken cancellationToken = default);
 }

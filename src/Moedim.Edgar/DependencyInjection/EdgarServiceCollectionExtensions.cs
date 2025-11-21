@@ -47,6 +47,12 @@ public static class EdgarServiceCollectionExtensions
                 })
                 .ValidateOnStart();
 
+        // Register caching service
+        services.TryAddSingleton<ICacheService>(sp =>
+        {
+            var logger = sp.GetService<ILogger<LocalFileCache>>();
+            return new LocalFileCache(null, logger);
+        });
 
         services.TryAddTransient<ICompanyFactsService, CompanyFactsService>();
         services.TryAddTransient<ICompanyConceptService, CompanyConceptService>();

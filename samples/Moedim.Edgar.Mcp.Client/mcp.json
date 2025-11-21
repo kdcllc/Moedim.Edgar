@@ -1,0 +1,18 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "mcpServers": {
+    "moedim-edgar": {
+      "command": "dotnet",
+      "args": [
+        "/absolute/path/to/Moedim.Edgar/src/Moedim.Edgar.Mcp/bin/Debug/net10.0/linux-x64/Moedim.Edgar.Mcp.dll"
+      ],
+      "env": {
+        "EDGAR_APP_NAME": "MCP.Client",
+        "EDGAR_APP_VERSION": "1.0.0",
+        "EDGAR_EMAIL": "your.email@example.com",
+        "EDGAR_REQUEST_DELAY_MS": "100",
+        "EDGAR_MAX_RETRY_COUNT": "3"
+      }
+    }
+  }
+}

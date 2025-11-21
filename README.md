@@ -22,6 +22,11 @@ C# .NET library for accessing the Security Exchange Commission's EDGAR database 
 - **Configurable** - Flexible options pattern for customizing behavior
 - **Well-Documented** - Comprehensive XML documentation on all public APIs
 - **Multi-Framework Support** - Targets .NET 8.0
+- **📄 Document Retrieval** - Download complete SEC filings as clean Markdown or HTML
+- **✂️ Intelligent Section Extraction** - Parse and extract specific sections from filings (Risk Factors, MD&A, etc.)
+- **🔍 Section Preview** - Browse filing sections before downloading full content
+- **💾 Built-in Caching** - Automatic caching to reduce API calls and improve performance
+- **🤖 MCP Server** - Model Context Protocol server for LLM integration (included in Moedim.Edgar.Mcp package)
 
 ## Hire me
 
@@ -38,6 +43,21 @@ If you like or are using this project to learn or start your solution, please gi
 ```bash
 dotnet add package Moedim.Edgar
 ```
+
+### MCP Server for AI Integration
+
+For AI assistant integration via Model Context Protocol (MCP), install the companion MCP server package:
+
+```bash
+# Install via dnx (recommended)
+dnx Moedim.Edgar.Mcp --version 1.0.0 --yes
+```
+
+The MCP server provides:
+- **17 tools** for accessing SEC EDGAR data (company facts, filing search, document retrieval, section extraction)
+- **6 guided prompts** for structured analysis workflows (company assessment, peer comparison, change tracking, and more)
+
+See [src/Moedim.Edgar.Mcp/README.md](src/Moedim.Edgar.Mcp/README.md) for full documentation.
 
 ## Quick Start
 
@@ -121,6 +141,56 @@ foreach (var dataPoint in revenues.DataPoints)
 }
 ```
 
+### Download Filing Documents (NEW)
+
+```csharp
+// Get complete filing as clean Markdown
+var markdown = await filingDetailsService.GetFilingDocumentAsync(
+    accessionNumber: "0000320193-23-000077",
+    tickerOrCik: "AAPL",
+    format: "markdown"
+);
+
+// Or get as HTML
+var html = await filingDetailsService.GetFilingDocumentAsync(
+    accessionNumber: "0000320193-23-000077",
+    format: "html"
+);
+```
+
+### Extract Specific Sections (NEW)
+
+```csharp
+// First, preview available sections
+var previewRequest = new FilingSectionsRequest { PreviewOnly = true };
+var preview = await filingDetailsService.GetFilingSectionsAsync(
+    accessionNumber: "0000320193-23-000077",
+    request: previewRequest
+);
+
+// Display available sections
+foreach (var section in preview.Preview)
+{
+    Console.WriteLine($"{section.AnchorTargetId}: {section.Label}");
+}
+
+// Then, get specific sections
+var sectionsRequest = new FilingSectionsRequest
+{
+    PreviewOnly = false,
+    AnchorIds = new[] { "item_1a_risk_factors", "item_7_managements_discussion_analysis" },
+    Merge = true, // Combine sections into single content
+    Format = "markdown"
+};
+
+var result = await filingDetailsService.GetFilingSectionsAsync(
+    accessionNumber: "0000320193-23-000077",
+    request: sectionsRequest
+);
+
+Console.WriteLine(result.MergedContent); // Clean markdown of selected sections
+```
+
 ## Configuration Options
 
 ```csharp
@@ -160,16 +230,77 @@ services.AddSecEdgar(options =>
   - `Services/` - SEC EDGAR client and service implementations
   - `Models/` - Data models and query types
   - `Extensions/` - Dependency injection extensions
+- **Moedim.Edgar.Mcp** - Model Context Protocol server for AI assistant integration
+  - `Tools/` - MCP tool implementations (17 tools)
+  - `Prompts/` - Guided analysis workflows (6 prompts)
+  - See [src/Moedim.Edgar.Mcp/README.md](src/Moedim.Edgar.Mcp/README.md) for details
 
 ## API Documentation
 
-### Services
+### Core Services
 
 - **ISecEdgarClient** - Low-level HTTP client for SEC EDGAR API
 - **ICompanyFactsService** - Service for retrieving all company facts
 - **ICompanyConceptService** - Service for querying specific financial concepts
+- **ICompanyLookupService** - Service for looking up company CIK from ticker symbol
+- **IEdgarSearchService** - Service for searching company filings
+- **IEdgarLatestFilingsService** - Service for retrieving latest filings
+- **IFilingDetailsService** - Service for retrieving filing details, documents, and sections
+- **ICacheService** - Service for caching SEC EDGAR data (implemented as LocalFileCache)
 
-### Models
+### New Features (v2.0)
+
+#### Document Retrieval
+
+The `IFilingDetailsService` now supports downloading complete filing documents in Markdown or HTML format:
+
+```csharp
+Task<string?> GetFilingDocumentAsync(
+    string accessionNumber,
+    string? tickerOrCik = null,
+    string? format = null,
+    CancellationToken cancellationToken = default);
+```
+
+- **accessionNumber**: The SEC accession number (e.g., "0000320193-23-000077")
+- **tickerOrCik**: Optional ticker symbol or CIK to help locate the filing
+- **format**: "markdown" (default) or "html"
+- **Returns**: Complete filing content in the requested format
+
+#### Section Extraction
+
+Extract specific sections from filings using a two-step workflow:
+
+**Step 1: Preview Sections**
+```csharp
+Task<FilingSectionsResult?> GetFilingSectionsAsync(
+    string accessionNumber,
+    FilingSectionsRequest request,
+    string? tickerOrCik = null,
+    CancellationToken cancellationToken = default);
+```
+
+With `request.PreviewOnly = true`, returns section IDs and titles without full content.
+
+**Step 2: Get Full Sections**
+With `request.PreviewOnly = false` and specific `request.AnchorIds`, returns full content of selected sections.
+
+**FilingSectionsRequest Properties:**
+- `PreviewOnly` - Return only section metadata
+- `AnchorIds` - List of section IDs to retrieve
+- `Format` - "markdown" (default) or "html"
+- `Merge` - Combine all sections into single content block
+
+#### Caching
+
+Built-in caching reduces API calls and improves performance:
+
+- Automatic caching of filing documents (24 hours)
+- Cached section parsing results
+- Local file-based cache by default
+- Cache directory: `.edgar_cache` in temp folder
+
+### Data Models
 
 - **CompanyFactsQuery** - Container for all company facts
 - **CompanyConceptQuery** - Container for specific concept data
