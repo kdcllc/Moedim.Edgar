@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "description": "MCP server for accessing SEC EDGAR filings and financial data. Provides tools to query company facts, concepts, and filings through the SEC's EDGAR database.",
+  "name": "io.github.kdcllc/Moedim.Edgar",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "nuget",
+      "identifier": "Moedim.Edgar.Mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [],
+      "environmentVariables": []
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/kdcllc/Moedim.Edgar",
+    "source": "github"
+  }
+}
