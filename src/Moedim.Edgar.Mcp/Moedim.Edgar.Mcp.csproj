@@ -18,11 +18,8 @@
     <!-- Set up the MCP server to be a single file executable -->
     <PublishSingleFile>true</PublishSingleFile>
 
-    <!-- Exclude the build output from the package (only include published RID-specific outputs) -->
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-
-    <!-- Prevent packaging when no RuntimeIdentifier is set -->
-    <IsPackable Condition="'$(RuntimeIdentifier)' == ''">false</IsPackable>
+    <!-- Disable symbol package generation for the main (no-RID) package to avoid NU5017 error -->
+    <IncludeSymbols>false</IncludeSymbols>
   </PropertyGroup>
 
   <!-- Include additional files for the MCP server package -->
@@ -43,12 +40,5 @@
   <ItemGroup>
     <ProjectReference Include="../Moedim.Edgar/Moedim.Edgar.csproj" />
   </ItemGroup>
-
-  <!-- Include the published executables in the package -->
-  <Target Name="AddPublishedOutputToPackage" AfterTargets="Publish">
-    <ItemGroup>
-      <TfmSpecificPackageFile Include="$(PublishDir)**\*" PackagePath="tools/$(TargetFramework)/$(RuntimeIdentifier)/" />
-    </ItemGroup>
-  </Target>
 
 </Project>
