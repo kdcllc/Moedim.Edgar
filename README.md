@@ -248,7 +248,7 @@ services.AddSecEdgar(options =>
 - **IFilingDetailsService** - Service for retrieving filing details, documents, and sections
 - **ICacheService** - Service for caching SEC EDGAR data (implemented as LocalFileCache)
 
-### New Features (v2.0)
+### New Features (v1.1.0)
 
 #### Document Retrieval
 

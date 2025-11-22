@@ -21,10 +21,12 @@ public static class EdgarServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The service collection to add services to</param>
     /// <param name="configureOptions">Action to configure SEC EDGAR options</param>
+    /// <param name="cacheDirectoryName"></param>
     /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddSecEdgar(
         this IServiceCollection services,
-        Action<SecEdgarOptions> configureOptions)
+        Action<SecEdgarOptions> configureOptions,
+        string cacheDirectoryName = ".edgar_cache")
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configureOptions);
@@ -51,7 +53,7 @@ public static class EdgarServiceCollectionExtensions
         services.TryAddSingleton<ICacheService>(sp =>
         {
             var logger = sp.GetService<ILogger<LocalFileCache>>();
-            return new LocalFileCache(null, logger);
+            return new LocalFileCache(cacheDirectoryName, logger);
         });
 
         services.TryAddTransient<ICompanyFactsService, CompanyFactsService>();
