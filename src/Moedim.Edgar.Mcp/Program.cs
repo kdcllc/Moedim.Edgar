@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Moedim.Edgar.Mcp.Tools;
+using Moedim.Edgar.Mcp.Prompts;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -25,12 +26,13 @@ builder.Services.AddSecEdgar(options =>
         ? retryCount : 3;
 });
 
-// Add the MCP services: the transport to use (stdio) and the tools to register.
+// Add the MCP services: the transport to use (stdio) and the tools/prompts to register.
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
     .WithTools<CompanyDataTools>()
     .WithTools<FilingSearchTools>()
-    .WithTools<FilingDetailsTools>();
+    .WithTools<FilingDetailsTools>()
+    .WithPrompts<EdgarPrompts>();
 
 await builder.Build().RunAsync();

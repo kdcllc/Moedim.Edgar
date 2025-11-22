@@ -11,6 +11,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="Polly.Extensions.Http" />
+    <PackageReference Include="ReverseMarkdown" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,704 +1,341 @@
-using Microsoft.Extensions.Configuration;
-using Moedim.Edgar.Models.Fillings;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Moedim.Edgar.Services;
+using Moedim.Edgar.Models.Fillings;
 
-namespace Moedim.Edgar.Sample;
-
-/// <summary>
-/// Sample application demonstrating all Moedim.Edgar library features
-/// </summary>
-class Program
-{
-    static async Task Main(string[] args)
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices((context, services) =>
     {
-        // Setup dependency injection
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddEnvironmentVariables()
-            .Build();
-
-        // Add logging
-        services.AddLogging(builder =>
-        {
-            builder.AddConsole();
-            builder.SetMinimumLevel(LogLevel.Information);
-        });
-
-        // Add SEC EDGAR services with configuration
         services.AddSecEdgar(options =>
         {
-            options.AppName = "Moedim.Edgar.Sample";
+            options.AppName = "Moedim.Edgar.CLI";
             options.AppVersion = "1.0.0";
-            options.Email = "sample@example.com";
+            options.Email = "cli@example.com";
             options.RequestDelay = TimeSpan.FromMilliseconds(100);
             options.MaxRetryCount = 3;
-            options.TimeoutDelay = TimeSpan.FromSeconds(30);
-            options.UseExponentialBackoff = true;
-            options.RetryBackoffMultiplier = 2;
         });
+    })
+    .Build();
 
-        services.AddSingleton<IConfiguration>(configuration);
+// Create a scope to resolve services
+using var scope = host.Services.CreateScope();
+var companyLookupService = scope.ServiceProvider.GetRequiredService<ICompanyLookupService>();
+var companyFactsService = scope.ServiceProvider.GetRequiredService<ICompanyFactsService>();
+var companyConceptService = scope.ServiceProvider.GetRequiredService<ICompanyConceptService>();
+var edgarSearchService = scope.ServiceProvider.GetRequiredService<IEdgarSearchService>();
+var latestFilingsService = scope.ServiceProvider.GetRequiredService<IEdgarLatestFilingsService>();
+var filingDetailsService = scope.ServiceProvider.GetRequiredService<IFilingDetailsService>();
 
-        var sp = services.BuildServiceProvider();
-        var logger = sp.GetRequiredService<ILogger<Program>>();
+// Parse command line arguments
+if (args.Length == 0)
+{
+    Console.WriteLine("Moedim Edgar CLI - SEC Filing Service");
+    Console.WriteLine();
+    Console.WriteLine("Usage:");
+    Console.WriteLine("  edgar-cli company <ticker|cik>              Get company information (CIK lookup)");
+    Console.WriteLine("  edgar-cli filings <ticker|cik> [form]       Get company filings (e.g., 10-K, 10-Q)");
+    Console.WriteLine("  edgar-cli filing-details <url>              Get filing details from documents URL");
+    Console.WriteLine("  edgar-cli facts <cik>                       Get all company facts");
+    Console.WriteLine("  edgar-cli concept <cik> <tag>               Get specific concept data (e.g., Revenues, Assets)");
+    Console.WriteLine("  edgar-cli latest [form]                     Get latest filings across all companies");
+    Console.WriteLine();
+    Console.WriteLine("Examples:");
+    Console.WriteLine("  edgar-cli company AAPL");
+    Console.WriteLine("  edgar-cli filings MSFT 10-K");
+    Console.WriteLine("  edgar-cli facts 320193");
+    Console.WriteLine("  edgar-cli concept 320193 Revenues");
+    Console.WriteLine("  edgar-cli latest 10-K");
+    return;
+}
 
-        logger.LogInformation("=== Moedim.Edgar Comprehensive Sample Application ===");
-        logger.LogInformation("");
+var command = args[0].ToLower();
 
-        // Run all service examples
-        await RunCompanyLookupExamples(sp);
-        await RunCompanyFactsExamples(sp);
-        await RunCompanyConceptExamples(sp);
-        await RunEdgarSearchExamples(sp);
-        await RunEdgarLatestFilingsExamples(sp);
-        await RunFilingDetailsExamples(sp);
+try
+{
+    switch (command)
+    {
+        case "company":
+            if (args.Length < 2)
+            {
+                Console.WriteLine("Error: Please provide a ticker or CIK");
+                return;
+            }
+            await GetCompanyInfo(companyLookupService, args[1]);
+            break;
 
-        logger.LogInformation("");
-        logger.LogInformation("=== All Samples Complete ===");
+        case "filings":
+            if (args.Length < 2)
+            {
+                Console.WriteLine("Error: Please provide a ticker or CIK");
+                return;
+            }
+            var formType = args.Length > 2 ? args[2] : null;
+            await GetFilings(edgarSearchService, args[1], formType);
+            break;
+
+        case "filing-details":
+            if (args.Length < 2)
+            {
+                Console.WriteLine("Error: Please provide a filing documents URL");
+                Console.WriteLine("Usage: filing-details <documents-url>");
+                return;
+            }
+            await GetFilingDetails(filingDetailsService, args[1]);
+            break;
+
+        case "facts":
+            if (args.Length < 2)
+            {
+                Console.WriteLine("Error: Please provide a CIK");
+                Console.WriteLine("Usage: facts <cik>");
+                Console.WriteLine("Example: facts 320193");
+                return;
+            }
+            if (!int.TryParse(args[1], out var factsCik))
+            {
+                Console.WriteLine("Error: CIK must be a number");
+                return;
+            }
+            await GetCompanyFacts(companyFactsService, factsCik);
+            break;
+
+        case "concept":
+            if (args.Length < 3)
+            {
+                Console.WriteLine("Error: Please provide CIK and concept tag");
+                Console.WriteLine("Usage: concept <cik> <tag>");
+                Console.WriteLine("Example: concept 320193 Revenues");
+                return;
+            }
+            if (!int.TryParse(args[1], out var conceptCik))
+            {
+                Console.WriteLine("Error: CIK must be a number");
+                return;
+            }
+            await GetCompanyConcept(companyConceptService, conceptCik, args[2]);
+            break;
+
+        case "latest":
+            var latestFormType = args.Length > 1 ? args[1] : null;
+            await GetLatestFilings(latestFilingsService, latestFormType);
+            break;
+
+        default:
+            Console.WriteLine($"Unknown command: {command}");
+            break;
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+}
+
+static async Task GetCompanyInfo(ICompanyLookupService service, string tickerOrCik)
+{
+    Console.WriteLine($"Looking up company: {tickerOrCik}...");
+
+    var cik = await service.GetCikFromSymbolAsync(tickerOrCik);
+
+    if (string.IsNullOrEmpty(cik))
+    {
+        Console.WriteLine("Company not found");
+        return;
     }
 
-    #region Company Lookup Service Examples
+    Console.WriteLine();
+    Console.WriteLine($"Symbol/Ticker: {tickerOrCik}");
+    Console.WriteLine($"CIK: {cik}");
+}
 
-    static async Task RunCompanyLookupExamples(ServiceProvider sp)
+static async Task GetFilings(IEdgarSearchService service, string tickerOrCik, string? formType)
+{
+    var typeDesc = formType ?? "all types";
+    Console.WriteLine($"Fetching {typeDesc} filings for {tickerOrCik}...");
+
+    var query = new EdgarSearchQuery
     {
-        var logger = sp.GetRequiredService<ILogger<Program>>();
-        var service = sp.GetRequiredService<ICompanyLookupService>();
+        Symbol = tickerOrCik,
+        FilingType = formType,
+        ResultsPerPage = EdgarSearchResultsPerPage.Entries40
+    };
 
-        logger.LogInformation("========================================");
-        logger.LogInformation("COMPANY LOOKUP SERVICE EXAMPLES");
-        logger.LogInformation("========================================");
-        logger.LogInformation("");
+    var response = await service.SearchAsync(query);
 
-        // Example 1: Lookup by common stock symbol
-        await Example("Lookup Apple by Symbol (AAPL)", async () =>
-        {
-            var cik = await service.GetCikFromSymbolAsync("AAPL");
-            logger.LogInformation("  Symbol: AAPL -> CIK: {CIK}", cik);
-        }, logger);
-
-        // Example 2: Lookup by another symbol
-        await Example("Lookup Microsoft by Symbol (MSFT)", async () =>
-        {
-            var cik = await service.GetCikFromSymbolAsync("MSFT");
-            logger.LogInformation("  Symbol: MSFT -> CIK: {CIK}", cik);
-        }, logger);
-
-        // Example 3: Lookup Tesla
-        await Example("Lookup Tesla by Symbol (TSLA)", async () =>
-        {
-            var cik = await service.GetCikFromSymbolAsync("TSLA");
-            logger.LogInformation("  Symbol: TSLA -> CIK: {CIK}", cik);
-        }, logger);
-
-        logger.LogInformation("");
+    if (response.Results == null || response.Results.Length == 0)
+    {
+        Console.WriteLine("No filings found");
+        return;
     }
 
-    #endregion
+    Console.WriteLine();
+    Console.WriteLine($"Found {response.Results.Length} filing(s):");
+    Console.WriteLine();
 
-    #region Company Facts Service Examples
-
-    static async Task RunCompanyFactsExamples(ServiceProvider sp)
+    foreach (var filing in response.Results.Take(20))
     {
-        var logger = sp.GetRequiredService<ILogger<Program>>();
-        var service = sp.GetRequiredService<ICompanyFactsService>();
+        Console.WriteLine($"Form: {filing.Filing}");
+        Console.WriteLine($"  Filed: {filing.FilingDate:yyyy-MM-dd}");
+        Console.WriteLine($"  Description: {filing.Description}");
+        if (!string.IsNullOrEmpty(filing.DocumentsUrl))
+            Console.WriteLine($"  URL: {filing.DocumentsUrl}");
+        Console.WriteLine();
+    }
+}
 
-        logger.LogInformation("========================================");
-        logger.LogInformation("COMPANY FACTS SERVICE EXAMPLES");
-        logger.LogInformation("========================================");
-        logger.LogInformation("");
+static async Task GetFilingDetails(IFilingDetailsService service, string documentsUrl)
+{
+    Console.WriteLine($"Fetching filing details from {documentsUrl}...");
 
-        // Example 1: Get all facts for Apple
-        await Example("Get All Facts for Apple Inc. (CIK: 320193)", async () =>
-        {
-            var facts = await service.QueryAsync(320193);
-            logger.LogInformation("  Entity: {EntityName} (CIK: {CIK})", facts.EntityName, facts.CIK);
-            logger.LogInformation("  Total Facts: {Count}", facts.Facts?.Length ?? 0);
+    var details = await service.GetFilingDetailsAsync(documentsUrl);
 
-            if (facts.Facts?.Length > 0)
-            {
-                logger.LogInformation("  Sample Facts (first 5):");
-                foreach (var fact in facts.Facts.Take(5))
-                {
-                    logger.LogInformation("    - {Label} ({Tag}): {DataPoints} data points",
-                        fact.Label ?? "N/A", fact.Tag, fact.DataPoints?.Length ?? 0);
-                }
-            }
-        }, logger);
-
-        // Example 2: Get facts for Microsoft
-        await Example("Get All Facts for Microsoft (CIK: 789019)", async () =>
-        {
-            var facts = await service.QueryAsync(789019);
-            logger.LogInformation("  Entity: {EntityName}", facts.EntityName);
-            logger.LogInformation("  Total Facts: {Count}", facts.Facts?.Length ?? 0);
-
-            // Find specific facts like Assets, Revenues, etc.
-            if (facts.Facts?.Length > 0)
-            {
-                var revenue = facts.Facts.FirstOrDefault(f =>
-                    f.Tag?.Contains("Revenue", StringComparison.OrdinalIgnoreCase) == true);
-                if (revenue != null)
-                {
-                    logger.LogInformation("  Found Revenue fact: {Label} with {Count} data points",
-                        revenue.Label, revenue.DataPoints?.Length ?? 0);
-                }
-            }
-        }, logger);
-
-        // Example 3: Get facts with taxonomy filtering
-        await Example("Get Facts Analysis for Tesla (CIK: 1318605)", async () =>
-        {
-            var facts = await service.QueryAsync(1318605);
-            logger.LogInformation("  Entity: {EntityName}", facts.EntityName);
-
-            if (facts.Facts?.Length > 0)
-            {
-                // Analyze facts by their tags
-                var factsByTag = facts.Facts.GroupBy(f => f.Tag?.Substring(0, Math.Min(3, f.Tag.Length)) ?? "N/A").ToList();
-                logger.LogInformation("  Total Facts: {Count}", facts.Facts.Length);
-                logger.LogInformation("  Fact Tag Prefixes:");
-                foreach (var group in factsByTag.Take(5))
-                {
-                    logger.LogInformation("    {Prefix}*: {Count} facts", group.Key, group.Count());
-                }
-            }
-        }, logger);
-
-        logger.LogInformation("");
+    if (details == null)
+    {
+        Console.WriteLine("Filing details not found");
+        return;
     }
 
-    #endregion
+    Console.WriteLine();
+    Console.WriteLine("Filing Details:");
+    Console.WriteLine($"  Entity: {details.EntityName} (CIK: {details.EntityCik})");
+    Console.WriteLine($"  Form Type: {details.Form}");
+    Console.WriteLine($"  Accession: {details.AccessionNumberP1}-{details.AccessionNumberP2}-{details.AccessionNumberP3}");
+    Console.WriteLine($"  Filing Date: {details.FilingDate:yyyy-MM-dd}");
+    Console.WriteLine($"  Period of Report: {details.PeriodOfReport:yyyy-MM-dd}");
+    Console.WriteLine($"  Accepted: {details.Accepted:yyyy-MM-dd HH:mm:ss}");
+    Console.WriteLine();
 
-    #region Company Concept Service Examples
-
-    static async Task RunCompanyConceptExamples(ServiceProvider sp)
+    if (details.DocumentFormatFiles?.Length > 0)
     {
-        var logger = sp.GetRequiredService<ILogger<Program>>();
-        var service = sp.GetRequiredService<ICompanyConceptService>();
-
-        logger.LogInformation("========================================");
-        logger.LogInformation("COMPANY CONCEPT SERVICE EXAMPLES");
-        logger.LogInformation("========================================");
-        logger.LogInformation("");
-
-        // Example 1: Query Revenue concept for Microsoft
-        await Example("Query Revenues for Microsoft (CIK: 789019)", async () =>
+        Console.WriteLine($"Document Format Files ({details.DocumentFormatFiles.Length}):");
+        foreach (var doc in details.DocumentFormatFiles.Take(10))
         {
-            var concept = await service.QueryAsync(789019, "Revenues");
-            logger.LogInformation("  Entity: {EntityName} (CIK: {CIK})", concept.EntityName, concept.CIK);
-
-            if (concept.Result != null)
-            {
-                logger.LogInformation("  Concept: {Label} ({Tag})", concept.Result.Label, concept.Result.Tag);
-                logger.LogInformation("  Description: {Description}", concept.Result.Description);
-                logger.LogInformation("  Total Data Points: {Count}", concept.Result.DataPoints?.Length ?? 0);
-
-                if (concept.Result.DataPoints?.Length > 0)
-                {
-                    var recent = concept.Result.DataPoints
-                        .Where(dp => dp.Period != default && dp.Value != 0)
-                        .OrderByDescending(dp => dp.Filed)
-                        .Take(3);
-
-                    logger.LogInformation("  Recent Filings:");
-                    foreach (var dp in recent)
-                    {
-                        logger.LogInformation("    Period: {Period:yyyy-MM-dd}, Value: ${Value:N0}, Filed: {Filed:yyyy-MM-dd}",
-                            dp.Period, dp.Value, dp.Filed);
-                    }
-                }
-            }
-        }, logger);
-
-        // Example 2: Query Assets for Apple
-        await Example("Query Assets for Apple (CIK: 320193)", async () =>
-        {
-            var concept = await service.QueryAsync(320193, "Assets");
-
-            if (concept.Result != null)
-            {
-                logger.LogInformation("  Concept: {Label}", concept.Result.Label);
-                logger.LogInformation("  Data Points: {Count}", concept.Result.DataPoints?.Length ?? 0);
-
-                if (concept.Result.DataPoints?.Length > 0)
-                {
-                    // Show different types of data points
-                    var dataPointsWithValues = concept.Result.DataPoints.Where(dp => dp.Value != 0).ToList();
-                    logger.LogInformation("  Data Points with Values: {Count} out of {Total}",
-                        dataPointsWithValues.Count, concept.Result.DataPoints.Length);
-
-                    if (dataPointsWithValues.Count > 0)
-                    {
-                        logger.LogInformation("  Recent Data Points:");
-                        foreach (var dp in dataPointsWithValues.OrderByDescending(d => d.Filed).Take(3))
-                        {
-                            logger.LogInformation("    Period: {Period:yyyy-MM-dd}, Value: ${Value:N0}",
-                                dp.Period, dp.Value);
-                        }
-                    }
-                }
-            }
-        }, logger);
-
-        // Example 3: Query Liabilities
-        await Example("Query Liabilities for Tesla (CIK: 1318605)", async () =>
-        {
-            var concept = await service.QueryAsync(1318605, "Liabilities");
-
-            if (concept.Result != null)
-            {
-                logger.LogInformation("  Tag: {Tag}, Label: {Label}", concept.Result.Tag, concept.Result.Label);
-
-                if (concept.Result.DataPoints?.Length > 0)
-                {
-                    var latest = concept.Result.DataPoints
-                        .Where(dp => dp.Value != 0)
-                        .OrderByDescending(dp => dp.Filed)
-                        .FirstOrDefault();
-
-                    if (latest != null)
-                    {
-                        logger.LogInformation("  Latest Value: ${Value:N0} (Period: {Period:yyyy-MM-dd})",
-                            latest.Value, latest.Period);
-                    }
-                }
-            }
-        }, logger);
-
-        logger.LogInformation("");
-    }
-
-    #endregion
-
-    #region Edgar Search Service Examples
-
-    static async Task RunEdgarSearchExamples(ServiceProvider sp)
-    {
-        var logger = sp.GetRequiredService<ILogger<Program>>();
-        var service = sp.GetRequiredService<IEdgarSearchService>();
-
-        logger.LogInformation("========================================");
-        logger.LogInformation("EDGAR SEARCH SERVICE EXAMPLES");
-        logger.LogInformation("========================================");
-        logger.LogInformation("");
-
-        // Example 1: Search all filings for a company by symbol
-        await Example("Search All Filings for Apple (AAPL)", async () =>
-        {
-            var query = new EdgarSearchQuery
-            {
-                Symbol = "AAPL",
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries40
-            };
-
-            var response = await service.SearchAsync(query);
-            logger.LogInformation("  Total Results: {Count}", response.Results?.Length ?? 0);
-            logger.LogInformation("  Has Next Page: {HasNext}", !string.IsNullOrEmpty(response.NextPageUrl));
-
-            if (response.Results?.Length > 0)
-            {
-                logger.LogInformation("  Recent Filings (first 5):");
-                foreach (var filing in response.Results.Take(5))
-                {
-                    logger.LogInformation("    {Form} - {Description} ({FilingDate:yyyy-MM-dd})",
-                        filing.Filing, filing.Description, filing.FilingDate);
-                }
-            }
-        }, logger);
-
-        // Example 2: Search for specific form type (10-K annual reports)
-        await Example("Search 10-K Filings for Microsoft (MSFT)", async () =>
-        {
-            var query = new EdgarSearchQuery
-            {
-                Symbol = "MSFT",
-                FilingType = "10-K",
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries100,
-                OwnershipFilter = EdgarSearchOwnershipFilter.Exclude
-            };
-
-            var response = await service.SearchAsync(query);
-            logger.LogInformation("  10-K Filings Found: {Count}", response.Results?.Length ?? 0);
-
-            if (response.Results?.Length > 0)
-            {
-                logger.LogInformation("  Annual Reports:");
-                foreach (var filing in response.Results.Take(3))
-                {
-                    logger.LogInformation("    {FilingDate:yyyy-MM-dd}: {Description}",
-                        filing.FilingDate, filing.Description);
-                    logger.LogInformation("      URL: {Url}", filing.DocumentsUrl);
-                }
-            }
-        }, logger);
-
-        // Example 3: Search with date filter
-        await Example("Search Recent 8-K Filings for Tesla (TSLA)", async () =>
-        {
-            var query = new EdgarSearchQuery
-            {
-                Symbol = "TSLA",
-                FilingType = "8-K",
-                PriorTo = DateTime.Now.AddMonths(-6), // Last 6 months
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries40
-            };
-
-            var response = await service.SearchAsync(query);
-            logger.LogInformation("  8-K Filings (last 6 months): {Count}", response.Results?.Length ?? 0);
-
-            if (response.Results?.Length > 0)
-            {
-                logger.LogInformation("  Recent Current Reports:");
-                foreach (var filing in response.Results.Take(5))
-                {
-                    logger.LogInformation("    {FilingDate:yyyy-MM-dd}: {Form}",
-                        filing.FilingDate, filing.Filing);
-                }
-            }
-        }, logger);
-
-        // Example 4: Search by CIK instead of symbol
-        await Example("Search by CIK for Apple (320193)", async () =>
-        {
-            var query = new EdgarSearchQuery
-            {
-                Symbol = "320193",
-                FilingType = "10-Q", // Quarterly reports
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries40
-            };
-
-            var response = await service.SearchAsync(query);
-            logger.LogInformation("  10-Q Filings: {Count}", response.Results?.Length ?? 0);
-        }, logger);
-
-        // Example 5: Pagination example
-        await Example("Pagination - Get Next Page of Results", async () =>
-        {
-            var query = new EdgarSearchQuery
-            {
-                Symbol = "AAPL",
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries10
-            };
-
-            var firstPage = await service.SearchAsync(query);
-            logger.LogInformation("  First Page: {Count} filings", firstPage.Results?.Length ?? 0);
-
-            if (!string.IsNullOrEmpty(firstPage.NextPageUrl))
-            {
-                var secondPage = await service.NextPageAsync(firstPage.NextPageUrl);
-                logger.LogInformation("  Second Page: {Count} filings", secondPage.Results?.Length ?? 0);
-                logger.LogInformation("  Has More Pages: {HasMore}", !string.IsNullOrEmpty(secondPage.NextPageUrl));
-            }
-        }, logger);
-
-        logger.LogInformation("");
-    }
-
-    #endregion
-
-    #region Edgar Latest Filings Service Examples
-
-    static async Task RunEdgarLatestFilingsExamples(ServiceProvider sp)
-    {
-        var logger = sp.GetRequiredService<ILogger<Program>>();
-        var service = sp.GetRequiredService<IEdgarLatestFilingsService>();
-
-        logger.LogInformation("========================================");
-        logger.LogInformation("EDGAR LATEST FILINGS SERVICE EXAMPLES");
-        logger.LogInformation("========================================");
-        logger.LogInformation("");
-
-        // Example 1: Get all latest filings
-        await Example("Get Latest Filings (All Forms)", async () =>
-        {
-            var query = new EdgarLatestFilingsQuery
-            {
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries40,
-                OwnershipFilter = EdgarSearchOwnershipFilter.Include
-            };
-
-            var results = await service.SearchAsync(query);
-            logger.LogInformation("  Latest Filings Retrieved: {Count}", results?.Length ?? 0);
-
-            if (results?.Length > 0)
-            {
-                logger.LogInformation("  Recent Filings Across All Companies:");
-                foreach (var filing in results.Take(5))
-                {
-                    logger.LogInformation("    {Company}: {Form} ({FilingDate:yyyy-MM-dd})",
-                        filing.EntityTitle, filing.Filing, filing.FilingDate);
-                }
-            }
-        }, logger);
-
-        // Example 2: Filter by form type (10-K only)
-        await Example("Get Latest 10-K Filings Only", async () =>
-        {
-            var query = new EdgarLatestFilingsQuery
-            {
-                FormType = "10-K",
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries100,
-                OwnershipFilter = EdgarSearchOwnershipFilter.Exclude
-            };
-
-            var results = await service.SearchAsync(query);
-            logger.LogInformation("  Latest 10-K Filings: {Count}", results?.Length ?? 0);
-
-            if (results?.Length > 0)
-            {
-                logger.LogInformation("  Recent Annual Reports:");
-                foreach (var filing in results.Take(5))
-                {
-                    logger.LogInformation("    {Company} - CIK: {CIK} ({FilingDate:yyyy-MM-dd})",
-                        filing.EntityTitle, filing.EntityCik, filing.FilingDate);
-                }
-            }
-        }, logger);
-
-        // Example 3: Get 8-K current reports
-        await Example("Get Latest 8-K Current Reports", async () =>
-        {
-            var query = new EdgarLatestFilingsQuery
-            {
-                FormType = "8-K",
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries40,
-                OwnershipFilter = EdgarSearchOwnershipFilter.Exclude
-            };
-
-            var results = await service.SearchAsync(query);
-            logger.LogInformation("  Latest 8-K Filings: {Count}", results?.Length ?? 0);
-
-            if (results?.Length > 0)
-            {
-                var grouped = results.GroupBy(f => f.Filing).ToList();
-                logger.LogInformation("  Form Types Found:");
-                foreach (var group in grouped)
-                {
-                    logger.LogInformation("    {FormType}: {Count} filings", group.Key, group.Count());
-                }
-            }
-        }, logger);
-
-        // Example 4: Include ownership filings
-        await Example("Get Latest Filings Including Ownership (Form 3, 4, 5)", async () =>
-        {
-            var query = new EdgarLatestFilingsQuery
-            {
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries40,
-                OwnershipFilter = EdgarSearchOwnershipFilter.Only // Only ownership filings
-            };
-
-            var results = await service.SearchAsync(query);
-            logger.LogInformation("  Ownership Filings: {Count}", results?.Length ?? 0);
-
-            if (results?.Length > 0)
-            {
-                logger.LogInformation("  Recent Insider Transactions:");
-                foreach (var filing in results.Take(5))
-                {
-                    logger.LogInformation("    {Company}: {Form} ({FilingDate:yyyy-MM-dd})",
-                        filing.EntityTitle, filing.Filing, filing.FilingDate);
-                }
-            }
-        }, logger);
-
-        // Example 5: Different results per page options
-        await Example("Get Latest 10-Q Filings with Different Page Sizes", async () =>
-        {
-            var sizes = new[]
-            {
-                EdgarSearchResultsPerPage.Entries10,
-                EdgarSearchResultsPerPage.Entries40,
-                EdgarSearchResultsPerPage.Entries80,
-                EdgarSearchResultsPerPage.Entries100
-            };
-
-            foreach (var size in sizes)
-            {
-                var query = new EdgarLatestFilingsQuery
-                {
-                    FormType = "10-Q",
-                    ResultsPerPage = size,
-                    OwnershipFilter = EdgarSearchOwnershipFilter.Exclude
-                };
-
-                var results = await service.SearchAsync(query);
-                logger.LogInformation("  Page Size {Size}: Retrieved {Count} filings",
-                    size, results?.Length ?? 0);
-            }
-        }, logger);
-
-        logger.LogInformation("");
-    }
-
-    #endregion
-
-    #region Filing Details Service Examples
-
-    static async Task RunFilingDetailsExamples(ServiceProvider sp)
-    {
-        var logger = sp.GetRequiredService<ILogger<Program>>();
-        var service = sp.GetRequiredService<IFilingDetailsService>();
-        var searchService = sp.GetRequiredService<IEdgarSearchService>();
-
-        logger.LogInformation("========================================");
-        logger.LogInformation("FILING DETAILS SERVICE EXAMPLES");
-        logger.LogInformation("========================================");
-        logger.LogInformation("");
-
-        // First, get a filing URL to work with
-        string? filingUrl = null;
-        await Example("Get a Sample Filing URL", async () =>
-        {
-            var query = new EdgarSearchQuery
-            {
-                Symbol = "AAPL",
-                FilingType = "10-K",
-                ResultsPerPage = EdgarSearchResultsPerPage.Entries10
-            };
-
-            var response = await searchService.SearchAsync(query);
-            if (response.Results?.Length > 0)
-            {
-                var filing = response.Results[0];
-                filingUrl = filing.DocumentsUrl;
-                logger.LogInformation("  Using filing: {Form} from {Date:yyyy-MM-dd}",
-                    filing.Filing, filing.FilingDate);
-                logger.LogInformation("  Documents URL: {Url}", filingUrl);
-            }
-        }, logger);
-
-        if (string.IsNullOrEmpty(filingUrl))
-        {
-            logger.LogWarning("  No filing URL available for remaining examples");
-            logger.LogInformation("");
-            return;
+            Console.WriteLine($"  [{doc.Sequence}] {doc.Description}");
+            Console.WriteLine($"      File: {doc.DocumentName} ({doc.DocumentType}, {doc.Size:N0} bytes)");
         }
-
-        // Example 1: Get complete filing details
-        await Example("Get Complete Filing Details", async () =>
-        {
-            var details = await service.GetFilingDetailsAsync(filingUrl);
-            logger.LogInformation("  Filing Details:");
-            logger.LogInformation("    Entity: {Name} (CIK: {CIK})", details.EntityName, details.EntityCik);
-            logger.LogInformation("    Form Type: {Form}", details.Form);
-            logger.LogInformation("    Accession Number: {P1}-{P2}-{P3}",
-                details.AccessionNumberP1, details.AccessionNumberP2, details.AccessionNumberP3);
-            logger.LogInformation("    Filing Date: {Date:yyyy-MM-dd}", details.FilingDate);
-            logger.LogInformation("    Period of Report: {Date:yyyy-MM-dd}", details.PeriodOfReport);
-            logger.LogInformation("    Accepted: {Date:yyyy-MM-dd HH:mm:ss}", details.Accepted);
-            logger.LogInformation("    Document Format Files: {Count}", details.DocumentFormatFiles?.Length ?? 0);
-            logger.LogInformation("    Data Files: {Count}", details.DataFiles?.Length ?? 0);
-        }, logger);
-
-        // Example 2: Extract CIK from filing
-        await Example("Extract CIK from Filing URL", async () =>
-        {
-            var cik = await service.GetCikFromFilingAsync(filingUrl);
-            logger.LogInformation("  Extracted CIK: {CIK}", cik);
-        }, logger);
-
-        // Example 3: Get document format files
-        await Example("Get Document Format Files", async () =>
-        {
-            var documents = await service.GetDocumentFormatFilesAsync(filingUrl);
-            logger.LogInformation("  Document Format Files: {Count}", documents?.Length ?? 0);
-
-            if (documents?.Length > 0)
-            {
-                logger.LogInformation("  Documents:");
-                foreach (var doc in documents.Take(5))
-                {
-                    logger.LogInformation("    [{Seq}] {Description} - {Name} ({Type}, {Size:N0} bytes)",
-                        doc.Sequence, doc.Description, doc.DocumentName, doc.DocumentType, doc.Size);
-                }
-            }
-        }, logger);
-
-        // Example 4: Get data files
-        await Example("Get Data Files (XBRL, etc.)", async () =>
-        {
-            var dataFiles = await service.GetDataFilesAsync(filingUrl);
-            logger.LogInformation("  Data Files: {Count}", dataFiles?.Length ?? 0);
-
-            if (dataFiles?.Length > 0)
-            {
-                logger.LogInformation("  Data Files:");
-                foreach (var file in dataFiles.Take(5))
-                {
-                    logger.LogInformation("    [{Seq}] {Description} - {Name} ({Type})",
-                        file.Sequence, file.Description, file.DocumentName, file.DocumentType);
-                }
-
-                // Find XBRL instance document
-                var xbrlInstance = dataFiles.FirstOrDefault(f =>
-                    f.Description?.Contains("XBRL INSTANCE", StringComparison.OrdinalIgnoreCase) == true ||
-                    f.DocumentType?.Contains("INS", StringComparison.OrdinalIgnoreCase) == true);
-
-                if (xbrlInstance != null)
-                {
-                    logger.LogInformation("  XBRL Instance Document Found: {Name}", xbrlInstance.DocumentName);
-                }
-            }
-        }, logger);
-
-        // Example 5: Download XBRL document
-        await Example("Download XBRL Instance Document", async () =>
-        {
-            var xbrlStream = await service.DownloadXbrlDocumentAsync(filingUrl);
-            logger.LogInformation("  XBRL Document downloaded successfully");
-            logger.LogInformation("  Stream Length: {Length:N0} bytes", xbrlStream?.Length ?? 0);
-
-            if (xbrlStream != null)
-            {
-                // Read first few bytes to verify it's XML
-                var buffer = new byte[100];
-                var bytesRead = await xbrlStream.ReadAsync(buffer, 0, buffer.Length);
-                var preview = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                logger.LogInformation("  Content Preview: {Preview}...",
-                    preview.Length > 50 ? preview.Substring(0, 50) : preview);
-
-                xbrlStream.Dispose();
-            }
-        }, logger);
-
-        // Example 6: Download a specific document
-        await Example("Download Specific Document", async () =>
-        {
-            var documents = await service.GetDocumentFormatFilesAsync(filingUrl);
-            if (documents?.Length > 0)
-            {
-                var firstDoc = documents[0];
-                if (!string.IsNullOrEmpty(firstDoc.Url))
-                {
-                    logger.LogInformation("  Downloading: {Name}", firstDoc.DocumentName);
-                    var stream = await service.DownloadDocumentAsync(firstDoc.Url);
-                    logger.LogInformation("  Downloaded: {Length:N0} bytes", stream?.Length ?? 0);
-                    stream?.Dispose();
-                }
-            }
-        }, logger);
-
-        logger.LogInformation("");
+        Console.WriteLine();
     }
 
-    #endregion
-
-    #region Helper Methods
-
-    static async Task Example(string title, Func<Task> action, ILogger logger)
+    if (details.DataFiles?.Length > 0)
     {
-        logger.LogInformation("Example: {Title}", title);
-        try
+        Console.WriteLine($"Data Files ({details.DataFiles.Length}):");
+        foreach (var file in details.DataFiles.Take(10))
         {
-            await action();
+            Console.WriteLine($"  [{file.Sequence}] {file.Description}");
+            Console.WriteLine($"      File: {file.DocumentName} ({file.DocumentType})");
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "  Error in example: {Message}", ex.Message);
-        }
-        logger.LogInformation("");
+    }
+}
+
+static async Task GetCompanyFacts(ICompanyFactsService service, int cik)
+{
+    Console.WriteLine($"Fetching all facts for CIK {cik}...");
+
+    var facts = await service.QueryAsync(cik);
+
+    if (facts == null)
+    {
+        Console.WriteLine("No facts found");
+        return;
     }
 
-    #endregion
+    Console.WriteLine();
+    Console.WriteLine($"Entity: {facts.EntityName} (CIK: {facts.CIK})");
+    Console.WriteLine($"Total Facts: {facts.Facts?.Length ?? 0}");
+    Console.WriteLine();
+
+    if (facts.Facts?.Length > 0)
+    {
+        Console.WriteLine("Sample Facts (first 20):");
+        foreach (var fact in facts.Facts.Take(20))
+        {
+            var dataPointCount = fact.DataPoints?.Length ?? 0;
+            Console.WriteLine($"  - {fact.Label ?? "N/A"}");
+            Console.WriteLine($"    Tag: {fact.Tag}, Data Points: {dataPointCount}");
+
+            if (dataPointCount > 0)
+            {
+                var recent = fact.DataPoints!.Where(dp => dp.Value != 0)
+                    .OrderByDescending(dp => dp.Filed)
+                    .FirstOrDefault();
+
+                if (recent != null)
+                {
+                    Console.WriteLine($"    Latest: ${recent.Value:N0} (Period: {recent.End:yyyy-MM-dd})");
+                }
+            }
+        }
+    }
+}
+
+static async Task GetCompanyConcept(ICompanyConceptService service, int cik, string tag)
+{
+    Console.WriteLine($"Fetching {tag} for CIK {cik}...");
+
+    var concept = await service.QueryAsync(cik, tag);
+
+    if (concept?.Result == null)
+    {
+        Console.WriteLine($"Concept '{tag}' not found");
+        return;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Entity: {concept.EntityName} (CIK: {concept.CIK})");
+    Console.WriteLine($"Concept: {concept.Result.Label} ({concept.Result.Tag})");
+    Console.WriteLine($"Description: {concept.Result.Description}");
+    Console.WriteLine($"Total Data Points: {concept.Result.DataPoints?.Length ?? 0}");
+    Console.WriteLine();
+
+    if (concept.Result.DataPoints?.Length > 0)
+    {
+        var recentPoints = concept.Result.DataPoints
+            .Where(dp => dp.End != default && dp.Value != 0)
+            .OrderByDescending(dp => dp.Filed)
+            .Take(10);
+
+        Console.WriteLine("Recent Filings:");
+        foreach (var dp in recentPoints)
+        {
+            Console.WriteLine($"  Period: {dp.End:yyyy-MM-dd}");
+            Console.WriteLine($"    Value: ${dp.Value:N0}");
+            Console.WriteLine($"    Filed: {dp.Filed:yyyy-MM-dd}");
+            Console.WriteLine($"    Form: {dp.FromForm}");
+        }
+    }
+}
+
+static async Task GetLatestFilings(IEdgarLatestFilingsService service, string? formType)
+{
+    var typeDesc = formType ?? "all forms";
+    Console.WriteLine($"Fetching latest filings ({typeDesc})...");
+
+    var query = new EdgarLatestFilingsQuery
+    {
+        FormType = formType,
+        ResultsPerPage = EdgarSearchResultsPerPage.Entries40,
+        OwnershipFilter = EdgarSearchOwnershipFilter.Exclude
+    };
+
+    var results = await service.SearchAsync(query);
+
+    if (results == null || results.Length == 0)
+    {
+        Console.WriteLine("No filings found");
+        return;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Latest {results.Length} filing(s):");
+    Console.WriteLine();
+
+    foreach (var filing in results.Take(20))
+    {
+        Console.WriteLine($"Company: {filing.EntityTitle}");
+        Console.WriteLine($"  CIK: {filing.EntityCik}");
+        Console.WriteLine($"  Form: {filing.Filing}");
+        Console.WriteLine($"  Filed: {filing.FilingDate:yyyy-MM-dd}");
+        if (!string.IsNullOrEmpty(filing.Description))
+            Console.WriteLine($"  Description: {filing.Description}");
+        Console.WriteLine();
+    }
 }

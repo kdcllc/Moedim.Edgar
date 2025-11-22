@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Moedim.Edgar.Client;
+using Moedim.Edgar.Services;
 using Moedim.Edgar.Services.Impl;
 
 namespace Moedim.Edgar.UnitTests.Services;
@@ -7,14 +8,16 @@ namespace Moedim.Edgar.UnitTests.Services;
 public class FilingDetailsServiceTests : IDisposable
 {
     private readonly Mock<ISecEdgarClient> _clientMock;
+    private readonly Mock<ICacheService> _cacheMock;
     private readonly Mock<ILogger<FilingDetailsService>> _loggerMock;
     private readonly FilingDetailsService _service;
 
     public FilingDetailsServiceTests()
     {
         _clientMock = new Mock<ISecEdgarClient>();
+        _cacheMock = new Mock<ICacheService>();
         _loggerMock = new Mock<ILogger<FilingDetailsService>>();
-        _service = new FilingDetailsService(_clientMock.Object, _loggerMock.Object);
+        _service = new FilingDetailsService(_clientMock.Object, _cacheMock.Object, _loggerMock.Object);
     }
 
     public void Dispose()
@@ -26,7 +29,7 @@ public class FilingDetailsServiceTests : IDisposable
     public void Constructor_NullClient_ThrowsArgumentNullException()
     {
         var exception = Assert.Throws<ArgumentNullException>(() =>
-            new FilingDetailsService(null!, _loggerMock.Object));
+            new FilingDetailsService(null!, _cacheMock.Object, _loggerMock.Object));
 
         exception.ParamName.Should().Be("client");
     }
@@ -412,7 +415,7 @@ public class FilingDetailsServiceTests : IDisposable
     [Fact(DisplayName = "Constructor with null logger works correctly")]
     public void Constructor_NullLogger_WorksCorrectly()
     {
-        var service = new FilingDetailsService(_clientMock.Object, null);
+        var service = new FilingDetailsService(_clientMock.Object, _cacheMock.Object, null);
 
         service.Should().NotBeNull();
     }
