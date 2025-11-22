@@ -163,4 +163,136 @@ internal class FilingDetailsTools
             return $"Error: Failed to retrieve data files. {ex.Message}";
         }
     }
+
+    [McpServerTool]
+    [Description("Downloads the full content of a SEC filing document. Returns clean markdown by default for LLM processing, or HTML if format='html'. Note: Filings can be very large (10-50MB). Consider using PreviewFilingSections for targeted analysis.")]
+    public async Task<string> GetFilingDocument(
+        [Description("The filing accession number (format: 0000000000-00-000000)")] string accessionNumber,
+        [Description("Optional: Company ticker symbol or CIK to help locate the filing")] string? tickerOrCik = null,
+        [Description("Output format: 'markdown' (default, clean text) or 'html' (raw HTML)")] string? format = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Fetching filing document: {Accession}, Format: {Format}", accessionNumber, format ?? "markdown");
+
+            var content = await _filingDetailsService.GetFilingDocumentAsync(accessionNumber, tickerOrCik, format, cancellationToken);
+
+            if (content == null)
+            {
+                return $"Error: Filing {accessionNumber} not found";
+            }
+
+            // Truncate if too large (over 100KB)
+            if (content.Length > 100000)
+            {
+                return content.Substring(0, 100000) + $"\n\n[Content truncated - total length: {content.Length:N0} characters. Use PreviewFilingSections and GetFilingSections for targeted extraction.]";
+            }
+
+            return content;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching filing document: {Accession}", accessionNumber);
+            return $"Error: Failed to retrieve filing document. {ex.Message}";
+        }
+    }
+
+    [McpServerTool]
+    [Description("Preview available sections in a SEC filing WITHOUT full content. Returns section IDs, titles, and brief snippets. Use this FIRST to discover sections, then use GetFilingSections with the IDs to get actual content.")]
+    public async Task<string> PreviewFilingSections(
+        [Description("The filing accession number")] string accessionNumber,
+        [Description("Optional: Company ticker symbol or CIK")] string? tickerOrCik = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Previewing filing sections: {Accession}", accessionNumber);
+
+            var request = new Moedim.Edgar.Models.Fillings.FilingSectionsRequest
+            {
+                PreviewOnly = true
+            };
+
+            var result = await _filingDetailsService.GetFilingSectionsAsync(accessionNumber, request, tickerOrCik, cancellationToken);
+
+            if (result?.Preview == null || result.Preview.Count == 0)
+            {
+                return "No sections found in this filing.";
+            }
+
+            var summary = new
+            {
+                TotalSections = result.Preview.Count,
+                Sections = result.Preview.Select(s => new
+                {
+                    AnchorId = s.AnchorTargetId,
+                    Title = s.Label,
+                    Preview = s.Snippet
+                }).ToList()
+            };
+
+            return JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error previewing filing sections: {Accession}", accessionNumber);
+            return $"Error: Failed to preview sections. {ex.Message}";
+        }
+    }
+
+    [McpServerTool]
+    [Description("Retrieve FULL CONTENT of specific filing sections by anchor IDs as clean markdown by default. You must call PreviewFilingSections first to get the anchor IDs. Pass the IDs you want to extract.")]
+    public async Task<string> GetFilingSections(
+        [Description("The filing accession number")] string accessionNumber,
+        [Description("List of section anchor IDs to retrieve (from PreviewFilingSections)")] string[] anchorIds,
+        [Description("Optional: Company ticker symbol or CIK")] string? tickerOrCik = null,
+        [Description("If true, merge all sections into single content block")] bool merge = false,
+        [Description("Output format: 'markdown' (default) or 'html'")] string? format = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Fetching filing sections: {Accession}, Sections: {Count}", accessionNumber, anchorIds?.Length ?? 0);
+
+            var request = new Moedim.Edgar.Models.Fillings.FilingSectionsRequest
+            {
+                PreviewOnly = false,
+                AnchorIds = anchorIds,
+                Merge = merge,
+                Format = format
+            };
+
+            var result = await _filingDetailsService.GetFilingSectionsAsync(accessionNumber, request, tickerOrCik, cancellationToken);
+
+            if (result == null)
+            {
+                return "Error: Filing not found";
+            }
+
+            if (merge && !string.IsNullOrEmpty(result.MergedContent))
+            {
+                return result.MergedContent;
+            }
+
+            if (result.Sections != null && result.Sections.Count > 0)
+            {
+                var sections = result.Sections.Select(s => new
+                {
+                    AnchorId = s.AnchorTargetId,
+                    Title = s.Label,
+                    Content = s.Content
+                }).ToList();
+
+                return JsonSerializer.Serialize(sections, new JsonSerializerOptions { WriteIndented = true });
+            }
+
+            return "No sections found matching the provided anchor IDs.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching filing sections: {Accession}", accessionNumber);
+            return $"Error: Failed to retrieve sections. {ex.Message}";
+        }
+    }
 }

@@ -1,16 +1,45 @@
 using Microsoft.Extensions.Logging;
 using Moedim.Edgar.Client;
 using Moedim.Edgar.Models.Fillings;
+using Moedim.Edgar.Services.Processing;
+using ReverseMarkdown;
+using System.Text.RegularExpressions;
 
 namespace Moedim.Edgar.Services.Impl;
 
 /// <summary>
 /// Service implementation for retrieving SEC filing details
 /// </summary>
-public class FilingDetailsService(ISecEdgarClient client, ILogger<FilingDetailsService>? logger = null) : IFilingDetailsService
+public class FilingDetailsService : IFilingDetailsService
 {
-    private readonly ISecEdgarClient _client = client ?? throw new ArgumentNullException(nameof(client));
-    private readonly ILogger<FilingDetailsService>? _logger = logger;
+    private readonly ISecEdgarClient _client;
+    private readonly ICacheService _cache;
+    private readonly ILogger<FilingDetailsService>? _logger;
+    private readonly Converter _markdownConverter;
+
+    /// <summary>
+    /// Initializes a new instance of the FilingDetailsService
+    /// </summary>
+    /// <param name="client">The SEC EDGAR HTTP client</param>
+    /// <param name="cache">The cache service</param>
+    /// <param name="logger">Optional logger instance</param>
+    public FilingDetailsService(
+        ISecEdgarClient client,
+        ICacheService cache,
+        ILogger<FilingDetailsService>? logger = null)
+    {
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        _logger = logger;
+
+        // Configure markdown converter
+        _markdownConverter = new Converter(new Config
+        {
+            GithubFlavored = true,
+            RemoveComments = true,
+            SmartHrefHandling = true
+        });
+    }
 
     /// <inheritdoc/>
     public async Task<EdgarFilingDetails> GetFilingDetailsAsync(string documentsUrl, CancellationToken cancellationToken = default)
@@ -356,6 +385,208 @@ public class FilingDetailsService(ISecEdgarClient client, ILogger<FilingDetailsS
         if (string.IsNullOrWhiteSpace(documentsUrl))
         {
             throw new ArgumentException("Documents URL is required", nameof(documentsUrl));
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<string?> GetFilingDocumentAsync(
+        string accessionNumber,
+        string? tickerOrCik = null,
+        string? format = null,
+        CancellationToken cancellationToken = default)
+    {
+        format = format?.ToLowerInvariant() ?? "markdown";
+        var cacheKey = $"{accessionNumber}_document_{format}";
+
+        // Check cache first
+        var cached = await _cache.GetAsync<string>(cacheKey);
+        if (cached != null) return cached;
+
+        try
+        {
+            // Clean accession number
+            var cleanAccession = Regex.Replace(
+                accessionNumber,
+                @"(-index)?(\.htm)?$",
+                "",
+                RegexOptions.IgnoreCase);
+
+            // Try to get document URL
+            var documentUrl = await FindPrimaryDocumentUrlAsync(cleanAccession, tickerOrCik, cancellationToken);
+
+            if (documentUrl == null)
+            {
+                _logger?.LogWarning("Could not find primary document for accession: {Accession}", cleanAccession);
+                return null;
+            }
+
+            // Download the document
+            var htmlContent = await _client.GetAsync(documentUrl, cancellationToken);
+
+            // Convert to markdown if requested
+            string result = format == "markdown"
+                ? _markdownConverter.Convert(htmlContent)
+                : htmlContent;
+
+            // Cache the result
+            await _cache.SetAsync(cacheKey, result, TimeSpan.FromHours(24));
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error getting filing document for accession: {Accession}", accessionNumber);
+            return null;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<FilingSectionsResult?> GetFilingSectionsAsync(
+        string accessionNumber,
+        FilingSectionsRequest request,
+        string? tickerOrCik = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var cleanAccession = Regex.Replace(
+                accessionNumber,
+                @"(-index)?(\.htm)?$",
+                "",
+                RegexOptions.IgnoreCase);
+
+            // Get the filing document
+            var filingDocument = await GetFilingDocumentAsync(cleanAccession, tickerOrCik, "html", cancellationToken);
+
+            if (string.IsNullOrEmpty(filingDocument))
+            {
+                return null;
+            }
+
+            // Check if we have cached sections
+            var sectionCacheKey = $"{cleanAccession}_sections";
+            var slices = await _cache.GetAsync<List<HtmlSlice>>(sectionCacheKey);
+
+            if (slices == null)
+            {
+                slices = await FilingProcessor.ProcessFilingContentAsync(filingDocument);
+                await _cache.SetAsync(sectionCacheKey, slices, TimeSpan.FromHours(24));
+            }
+
+            var result = new FilingSectionsResult();
+
+            // For preview, return only metadata
+            if (request.PreviewOnly)
+            {
+                result.Preview = slices.Select(s => new SectionPreview
+                {
+                    Label = s.Label,
+                    AnchorTargetId = s.AnchorTargetId,
+                    Snippet = s.Content.Length > 200
+                        ? s.Content.Substring(0, 200) + "..."
+                        : s.Content
+                }).ToList();
+
+                return result;
+            }
+
+            // Filter by anchor_ids if provided
+            var filteredSlices = slices;
+            if (request.AnchorIds != null && request.AnchorIds.Count > 0)
+            {
+                filteredSlices = slices
+                    .Where(s => request.AnchorIds.Contains(s.AnchorTargetId, StringComparer.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            // Convert to markdown by default
+            var format = request.Format?.ToLowerInvariant() ?? "markdown";
+            if (format == "markdown")
+            {
+                filteredSlices = FilingProcessor.ConvertToMarkdown(filteredSlices);
+            }
+
+            // Return sections
+            result.Sections = filteredSlices;
+
+            // Merge if requested
+            if (request.Merge)
+            {
+                result.MergedContent = string.Join("\n\n",
+                    filteredSlices.Where(s => !string.IsNullOrWhiteSpace(s.Content))
+                                  .Select(s => s.Content));
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error getting filing sections for accession: {Accession}", accessionNumber);
+            return null;
+        }
+    }
+
+    private async Task<string?> FindPrimaryDocumentUrlAsync(
+        string cleanAccession,
+        string? tickerOrCik,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Build the documents URL
+            var parts = cleanAccession.Split('-');
+            if (parts.Length != 3) return null;
+
+            var accessionNoHyphens = cleanAccession.Replace("-", "");
+
+            // We need the CIK - try to extract from accession or use provided ticker/CIK
+            string? cik = null;
+
+            if (!string.IsNullOrEmpty(tickerOrCik))
+            {
+                // If it's numeric, assume it's CIK
+                if (long.TryParse(tickerOrCik, out var parsedCik))
+                {
+                    cik = parsedCik.ToString("D10");
+                }
+                else
+                {
+                    // It's a ticker, we'd need to look it up
+                    // For now, just use the filer CIK from accession
+                    cik = parts[0];
+                }
+            }
+            else
+            {
+                cik = parts[0];
+            }
+
+            // Try to get the filing details to find primary document
+            var documentsUrl = $"https://www.sec.gov/cgi-bin/viewer?action=view&cik={cik}&accession_number={accessionNoHyphens}";
+
+            try
+            {
+                var details = await GetFilingDetailsAsync(documentsUrl, cancellationToken);
+
+                // Find the primary document (usually sequence 1)
+                var primaryDoc = details.DocumentFormatFiles?
+                    .OrderBy(d => d.Sequence)
+                    .FirstOrDefault(d => d.DocumentType?.Contains("10-") == true ||
+                                        d.DocumentType?.Contains("8-") == true ||
+                                        d.Sequence == 1);
+
+                return primaryDoc?.Url;
+            }
+            catch
+            {
+                // If that fails, try constructing URL directly
+                return $"https://www.sec.gov/Archives/edgar/data/{cik}/{accessionNoHyphens}/{cleanAccession}.htm";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Error finding primary document URL for: {Accession}", cleanAccession);
+            return null;
         }
     }
 }

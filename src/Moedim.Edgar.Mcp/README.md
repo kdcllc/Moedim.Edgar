@@ -8,11 +8,27 @@ A Model Context Protocol (MCP) server that provides AI assistants with access to
 
 ## Features
 
+### Core EDGAR Integration
 - **SEC EDGAR Integration** - Direct access to Securities and Exchange Commission EDGAR database
 - **Company Facts** - Query comprehensive company financial facts and filings
 - **Financial Concepts** - Access specific financial concepts (revenues, assets, etc.)
+- **Company Lookup** - Convert ticker symbols to CIK numbers
+- **Filing Search** - Search company filings with filters
+- **Latest Filings** - Retrieve the most recent SEC filings across all companies
+
+### Document & Content Management
+- **📄 Document Download** - Download complete SEC filings as clean Markdown or HTML
+- **✂️ Section Extraction** - Parse and extract specific sections from filings (Risk Factors, MD&A, etc.)
+- **🔍 Section Preview** - Browse filing sections before downloading full content
+- **📋 Filing Details** - Get comprehensive metadata about specific filings
+- **🔗 Data Files** - Access structured data files (XML, XBRL, JSON) associated with filings
+
+### Performance & Architecture
+- **💾 Built-in Caching** - Automatic file-based caching to reduce API calls and improve performance
+- **🤖 Guided Workflows** - 6 pre-built prompts for common financial analysis patterns
 - **Type-Safe** - Built on strongly-typed models with full async/await support
 - **Cross-Platform** - Self-contained packages for Windows, macOS, and Linux
+- **Retry Logic** - Built-in retry mechanism for handling rate limiting and transient failures
 
 ## Installation
 
@@ -129,10 +145,28 @@ dotnet nuget push bin/Release/*.nupkg \
 
 ## Available Tools
 
-The MCP server provides the following tools (example from template - update based on your implementation):
+The MCP server provides 17 tools organized into functional categories:
 
-- `get_random_number` - Generate random numbers (sample tool)
-- Additional SEC EDGAR tools coming soon
+### Company Information (3 tools)
+- `get_company_facts` - Retrieve all financial facts for a company by CIK
+- `get_company_concept` - Get specific financial concept data (e.g., Revenues, Assets)
+- `get_cik_from_symbol` - Convert ticker symbol to CIK number
+
+### Filing Search & Discovery (3 tools)
+- `search_company_filings` - Search filings by company symbol or CIK with filters
+- `get_latest_filings` - Retrieve the most recent filings across all companies
+- `get_filing_details` - Get comprehensive metadata about a specific filing
+
+### Document Retrieval (3 tools)
+- `get_filing_document` - Download complete filing as Markdown or HTML
+- `preview_filing_sections` - List available sections in a filing
+- `get_filing_sections` - Extract specific sections from a filing
+
+### Filing Metadata (2 tools)
+- `get_cik_from_filing` - Extract CIK from a filing document URL
+- `get_data_files` - List structured data files (XML, XBRL, JSON) for a filing
+
+See [TOOLS.md](TOOLS.md) for detailed documentation of all available tools.
 
 ## Technical Details
 
